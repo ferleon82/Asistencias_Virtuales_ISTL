@@ -365,6 +365,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     void loadEstadoAsistencia();
+    if (user?.rol !== 'docente') return undefined;
+
+    const intervalId = window.setInterval(() => {
+      void loadEstadoAsistencia();
+    }, 30_000);
+
+    return () => window.clearInterval(intervalId);
   }, [loadEstadoAsistencia]);
 
   const loadDocentePanel = useCallback(async () => {
@@ -390,6 +397,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     void loadDocentePanel();
+    if (user?.rol !== 'docente') return undefined;
+
+    const intervalId = window.setInterval(() => {
+      void loadDocentePanel();
+    }, 30_000);
+
+    return () => window.clearInterval(intervalId);
   }, [loadDocentePanel]);
 
   const buildReportParams = useCallback(() => {

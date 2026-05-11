@@ -53,6 +53,18 @@ const activeHorario = {
   },
 };
 
+const endedHorario = {
+  ...activeHorario,
+  id: 'horario-finalizado',
+  hora_inicio: '10:20',
+  hora_fin: '10:25',
+  materia: {
+    id: 'materia-finalizada',
+    nombre: 'Clase Finalizada',
+    codigo: 'END-1',
+  },
+};
+
 const existingRegistro = {
   id: 'registro-1',
   docente_id: user.id,
@@ -128,6 +140,16 @@ describe('AsistenciasService', () => {
 
     expect(estado.puedeMarcarEntrada).toBe(false);
     expect(estado.puedeMarcarSalida).toBe(false);
+  });
+
+  it('ignora horarios cuya hora fin ya paso al buscar clase activa', async () => {
+    vi.mocked(prisma.horario.findMany).mockResolvedValue([endedHorario, activeHorario] as never);
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(null);
+
+    const estado = await service.getEstadoActual(user);
+
+    expect(estado.horarioActivo?.id).toBe(activeHorario.id);
+    expect(estado.puedeMarcarEntrada).toBe(true);
   });
 
   it('mantiene bloqueada la salida antes de los ultimos 10 minutos de clase', async () => {

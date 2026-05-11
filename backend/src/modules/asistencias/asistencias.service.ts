@@ -82,6 +82,11 @@ function subtractMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() - minutes * 60_000);
 }
 
+function horarioPermiteIngreso(now: Date, horaInicio: string, horaFin: string): boolean {
+  const classEnd = timeOnDate(now, horaFin);
+  return now <= classEnd && calcularEstadoAsistencia(now, horaInicio, now) !== 'fuera_de_ventana';
+}
+
 function buildRoleWhere(user: AuthScope): Prisma.RegistroAsistenciaWhereInput {
   if (user.rol === Rol.docente) {
     return { docente_id: user.id };
@@ -335,10 +340,7 @@ export class AsistenciasService {
       orderBy: { hora_inicio: 'asc' },
     });
 
-    return (
-      candidates.find((horario) => calcularEstadoAsistencia(now, horario.hora_inicio, now) !== 'fuera_de_ventana') ??
-      null
-    );
+    return candidates.find((horario) => horarioPermiteIngreso(now, horario.hora_inicio, horario.hora_fin)) ?? null;
   }
 
   private async findRegistroAbierto(docenteId: string) {
