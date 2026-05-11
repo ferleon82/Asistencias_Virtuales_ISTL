@@ -196,7 +196,8 @@ Ver `.env.example` en la raíz del proyecto para la lista completa de variables 
 
 ## Seguridad
 
-- Rate limiting: **5 intentos de login** por IP cada 15 minutos
+- Rate limiting general de API configurable con `API_RATE_LIMIT_MAX`/`API_RATE_LIMIT_WINDOW_MS`
+- Rate limiting de login: **5 intentos fallidos** por IP cada 15 minutos
 - Tokens JWT: Access (8h) + Refresh con rotación (7d)
 - CORS restringido a dominios ISTL en producción
 - Contraseñas hasheadas con bcrypt (12 rounds)

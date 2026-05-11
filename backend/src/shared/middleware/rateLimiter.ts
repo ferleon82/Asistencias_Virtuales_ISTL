@@ -3,16 +3,17 @@ import { env } from '../../config/env';
 
 /**
  * Rate limiter general para rutas de API.
- * 100 peticiones por IP cada 15 minutos.
+ * Debe ser suficientemente amplio para paneles autenticados con varias
+ * consultas paralelas, sin reemplazar límites estrictos de acciones sensibles.
  */
 export const apiRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: env.API_RATE_LIMIT_WINDOW_MS,
+  max: env.API_RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     ok: false,
-    message: 'Demasiadas peticiones desde esta IP. Intente nuevamente en 15 minutos.',
+    message: `Demasiadas peticiones desde esta IP. Intente nuevamente en ${Math.ceil(env.API_RATE_LIMIT_WINDOW_MS / 60000)} minutos.`,
   },
 });
 

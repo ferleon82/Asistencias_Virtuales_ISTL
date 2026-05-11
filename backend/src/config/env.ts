@@ -29,6 +29,8 @@ const envSchema = z.object({
   GOOGLE_ALLOWED_DOMAIN: z.string().default('tecnologicoloja.edu.ec'),
 
   // Rate Limiting
+  API_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000), // 15 minutos
+  API_RATE_LIMIT_MAX: z.coerce.number().default(1000),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000), // 15 minutos
   RATE_LIMIT_MAX: z.coerce.number().default(5),
 });
