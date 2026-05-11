@@ -107,11 +107,12 @@ export class AsistenciasService {
     const now = nowInEcuador();
     const horario = await this.findHorarioActivo(user.id, now);
     const registroAbierto = await this.findRegistroAbierto(user.id);
+    const registroDelHorario = horario ? await this.findRegistroDelHorarioHoy(user.id, horario.id, now) : null;
 
     return {
       horarioActivo: horario,
       registroAbierto,
-      puedeMarcarEntrada: !!horario && !registroAbierto,
+      puedeMarcarEntrada: !!horario && !registroAbierto && !registroDelHorario,
       puedeMarcarSalida: !!registroAbierto,
     };
   }
@@ -130,6 +131,11 @@ export class AsistenciasService {
     const horario = await this.findHorarioActivo(user.id, now);
     if (!horario) {
       throw new AppError('No hay una clase activa dentro de la ventana de marcado.', 404);
+    }
+
+    const alreadyMarked = await this.findRegistroDelHorarioHoy(user.id, horario.id, now);
+    if (alreadyMarked) {
+      throw new AppError('La asistencia de esta clase ya fue registrada. No puede marcar ingreso nuevamente.', 409);
     }
 
     const estadoCalculado = calcularEstadoAsistencia(now, horario.hora_inicio, now);
@@ -319,6 +325,21 @@ export class AsistenciasService {
         timestamp_entrada: {
           gte: startOfDay(today),
           lte: endOfDay(today),
+        },
+      },
+      include: asistenciaInclude,
+      orderBy: { timestamp_entrada: 'desc' },
+    });
+  }
+
+  private async findRegistroDelHorarioHoy(docenteId: string, horarioId: string, date: Date) {
+    return prisma.registroAsistencia.findFirst({
+      where: {
+        docente_id: docenteId,
+        horario_id: horarioId,
+        timestamp_entrada: {
+          gte: startOfDay(date),
+          lte: endOfDay(date),
         },
       },
       include: asistenciaInclude,
