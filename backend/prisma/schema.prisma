@@ -1,0 +1,253 @@
+// =============================================================================
+// Prisma Schema — Sistema de Asistencia Virtual Docente ISTL
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enumeraciones ─────────────────────────────────────────────────────────────
+
+enum Rol {
+  docente
+  coordinador
+  tics
+  rectorado
+}
+
+enum DiaSemana {
+  lunes
+  martes
+  miercoles
+  jueves
+  viernes
+  sabado
+}
+
+enum Modalidad {
+  virtual
+  presencial
+  hibrida
+}
+
+enum EstadoAsistencia {
+  puntual
+  tardanza
+  ausente
+  justificado
+}
+
+enum TipoNotificacion {
+  aviso_entrada
+  alerta_ausencias
+  resumen_diario
+  alerta_coordinador
+}
+
+enum CanalNotificacion {
+  email
+  sistema
+}
+
+// ─── Modelos ───────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  nombre        String
+  apellido      String
+  cedula        String    @unique
+  password_hash String
+  rol           Rol       @default(docente)
+  telefono      String?
+  avatar_url    String?
+  activo        Boolean   @default(true)
+  ultimo_acceso DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  // Relaciones
+  carreras_coordinadas Carrera[]            @relation("CoordinadorCarrera")
+  materias_impartidas  Materia[]            @relation("DocenteMateria")
+  registros_asistencia RegistroAsistencia[]
+  clases_recuperacion  ClaseRecuperacion[]
+  notificaciones       NotificacionLog[]
+  audit_logs           AuditLog[]
+  refresh_tokens       RefreshToken[]
+
+  @@index([email])
+  @@index([rol])
+  @@map("users")
+}
+
+model Carrera {
+  id             String  @id @default(uuid())
+  nombre         String
+  codigo         String  @unique
+  coordinador_id String?
+  activa         Boolean @default(true)
+
+  created_at DateTime @default(now())
+
+  coordinador User?    @relation("CoordinadorCarrera", fields: [coordinador_id], references: [id], onDelete: SetNull)
+  materias    Materia[]
+
+  @@map("carreras")
+}
+
+model Materia {
+  id         String  @id @default(uuid())
+  nombre     String
+  codigo     String  @unique
+  carrera_id String
+  docente_id String?
+  creditos   Int     @default(3)
+  activa     Boolean @default(true)
+
+  created_at DateTime @default(now())
+
+  carrera             Carrera             @relation(fields: [carrera_id], references: [id], onDelete: Cascade)
+  docente             User?               @relation("DocenteMateria", fields: [docente_id], references: [id], onDelete: SetNull)
+  horarios            Horario[]
+  clases_recuperacion ClaseRecuperacion[]
+
+  @@index([carrera_id])
+  @@index([docente_id])
+  @@map("materias")
+}
+
+model Horario {
+  id                 String    @id @default(uuid())
+  materia_id         String
+  dia_semana         DiaSemana
+  hora_inicio        String    // formato HH:mm
+  hora_fin           String    // formato HH:mm
+  ciclo              String    // ej: "2026-I"
+  modalidad          Modalidad @default(virtual)
+  url_aula_virtual   String?
+  activo             Boolean   @default(true)
+  fecha_inicio_ciclo DateTime  @db.Date
+  fecha_fin_ciclo    DateTime  @db.Date
+
+  created_at DateTime @default(now())
+
+  materia              Materia              @relation(fields: [materia_id], references: [id], onDelete: Cascade)
+  registros_asistencia RegistroAsistencia[]
+
+  @@index([materia_id])
+  @@index([dia_semana, ciclo])
+  @@map("horarios")
+}
+
+model RegistroAsistencia {
+  id          String @id @default(uuid())
+  docente_id  String
+  horario_id  String
+
+  timestamp_entrada           DateTime?
+  timestamp_salida            DateTime?
+  ip_entrada                  String?
+  ip_salida                   String?
+  lat                         Decimal?               @db.Decimal(10, 8)
+  lng                         Decimal?               @db.Decimal(11, 8)
+  precision_m                 Int?
+  estado                      EstadoAsistencia       @default(ausente)
+  justificacion               String?                @db.Text
+  user_agent                  String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  docente User    @relation(fields: [docente_id], references: [id], onDelete: Restrict)
+  horario Horario @relation(fields: [horario_id], references: [id], onDelete: Restrict)
+
+  @@unique([docente_id, horario_id, timestamp_entrada])
+  @@index([docente_id])
+  @@index([horario_id])
+  @@index([estado])
+  @@index([timestamp_entrada])
+  @@map("registros_asistencia")
+}
+
+model ClaseRecuperacion {
+  id               String   @id @default(uuid())
+  materia_id       String
+  docente_id       String
+  fecha            DateTime @db.Date
+  hora_inicio      String
+  hora_fin         String
+  url_aula_virtual String?
+  motivo           String?  @db.Text
+  aprobada         Boolean  @default(false)
+
+  created_at DateTime @default(now())
+
+  materia Materia @relation(fields: [materia_id], references: [id], onDelete: Cascade)
+  docente User    @relation(fields: [docente_id], references: [id], onDelete: Restrict)
+
+  @@index([docente_id])
+  @@index([fecha])
+  @@map("clases_recuperacion")
+}
+
+model NotificacionLog {
+  id              String            @id @default(uuid())
+  tipo            TipoNotificacion
+  destinatario_id String
+  enviado_at      DateTime?
+  canal           CanalNotificacion @default(email)
+  contenido       String?           @db.Text
+  leida           Boolean           @default(false)
+  enviado_exitoso Boolean           @default(false)
+
+  created_at DateTime @default(now())
+
+  destinatario User @relation(fields: [destinatario_id], references: [id], onDelete: Cascade)
+
+  @@index([destinatario_id])
+  @@index([tipo])
+  @@index([enviado_at])
+  @@map("notificaciones_log")
+}
+
+model AuditLog {
+  id               String   @id @default(uuid())
+  user_id          String?
+  accion           String
+  tabla_afectada   String
+  registro_id      String?
+  datos_anteriores Json?
+  datos_nuevos     Json?
+  ip               String?
+
+  created_at DateTime @default(now())
+
+  usuario User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([tabla_afectada])
+  @@index([created_at])
+  @@map("audit_log")
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  user_id    String
+  token      String   @unique
+  expires_at DateTime
+  revocado   Boolean  @default(false)
+  ip         String?
+
+  created_at DateTime @default(now())
+
+  usuario User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([token])
+  @@map("refresh_tokens")
+}

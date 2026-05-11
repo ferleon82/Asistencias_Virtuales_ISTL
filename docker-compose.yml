@@ -1,0 +1,106 @@
+services:
+  # ─── Base de Datos PostgreSQL ───────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: istl_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: asistencia_istl
+      POSTGRES_USER: istl_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-istl_dev_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U istl_user -d asistencia_istl"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - istl_network
+
+  # ─── Redis (Sesiones + Colas) ────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: istl_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-istl_redis_dev}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $${REDIS_PASSWORD:-istl_redis_dev} ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - istl_network
+
+  # ─── Backend API (Node.js + Express) ─────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: istl_backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://istl_user:${POSTGRES_PASSWORD:-istl_dev_password}@postgres:5432/asistencia_istl
+      REDIS_URL: redis://:${REDIS_PASSWORD:-istl_redis_dev}@redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-cambia_este_secreto_de_acceso_en_produccion_32chars}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-cambia_este_secreto_de_refresh_en_produccion_32chars}
+      JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY:-8h}
+      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY:-7d}
+      PORT: 3000
+      FRONTEND_URL: http://localhost:5173
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3000/api/v1/auth/google/callback}
+      GOOGLE_ALLOWED_DOMAIN: ${GOOGLE_ALLOWED_DOMAIN:-tecnologicoloja.edu.ec}
+      TZ: America/Guayaquil
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - istl_network
+    command: npm run dev
+
+  # ─── Frontend (React + Vite) ──────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: istl_frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:3000
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - istl_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  istl_network:
+    driver: bridge

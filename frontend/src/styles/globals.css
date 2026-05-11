@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Ruler';
+  src: url('../assets/fonts/Ruler-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Ruler';
+  src: url('../assets/fonts/Ruler-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+}
+
+@layer utilities {
+  /* Tamaños de íconos adicionales */
+  .w-4\.5 { width: 1.125rem; }
+  .h-4\.5 { height: 1.125rem; }
+
+  /* Scrollbar personalizado */
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-track { @apply bg-gray-100 rounded-full; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-gray-400 rounded-full; }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover { @apply bg-gray-500; }
+}
