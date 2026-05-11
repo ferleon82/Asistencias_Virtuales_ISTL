@@ -11,6 +11,7 @@ vi.mock('../../config/database', () => ({
     registroAsistencia: {
       findFirst: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
     },
     auditLog: {
       create: vi.fn(),
@@ -19,7 +20,7 @@ vi.mock('../../config/database', () => ({
 }));
 
 vi.mock('../../shared/utils/timezone', () => ({
-  nowInEcuador: vi.fn(() => new Date('2026-05-11T10:33:00.000Z')),
+  nowInEcuador: vi.fn(() => new Date(2026, 4, 11, 10, 33, 0, 0)),
   calcularEstadoAsistencia: vi.fn(() => EstadoAsistencia.puntual),
 }));
 
@@ -70,6 +71,34 @@ const existingRegistro = {
   updated_at: new Date('2026-05-11T10:35:00.000Z'),
 };
 
+const openRegistro = {
+  ...existingRegistro,
+  timestamp_salida: null,
+  horario: {
+    ...activeHorario,
+    materia: {
+      id: 'materia-1',
+      nombre: 'Reparacion de Motores',
+      codigo: 'RM-26',
+      docente_id: user.id,
+      carrera: {
+        id: 'carrera-1',
+        nombre: 'Mecanica',
+        codigo: 'MEC',
+        coordinador_id: null,
+      },
+    },
+  },
+};
+
+const earlyExitRegistro = {
+  ...openRegistro,
+  horario: {
+    ...openRegistro.horario,
+    hora_fin: '10:50',
+  },
+};
+
 describe('AsistenciasService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -99,5 +128,48 @@ describe('AsistenciasService', () => {
 
     expect(estado.puedeMarcarEntrada).toBe(false);
     expect(estado.puedeMarcarSalida).toBe(false);
+  });
+
+  it('mantiene bloqueada la salida antes de los ultimos 10 minutos de clase', async () => {
+    vi.mocked(prisma.horario.findMany).mockResolvedValue([activeHorario] as never);
+    vi.mocked(prisma.registroAsistencia.findFirst)
+      .mockResolvedValueOnce(earlyExitRegistro as never)
+      .mockResolvedValueOnce(null);
+
+    const estado = await service.getEstadoActual(user);
+
+    expect(estado.puedeMarcarEntrada).toBe(false);
+    expect(estado.puedeMarcarSalida).toBe(false);
+    expect(estado.salidaBloqueadaMotivo).toBe('La salida se habilita 10 minutos antes de la hora de fin de la clase.');
+  });
+
+  it('rechaza marcar salida antes de los ultimos 10 minutos de clase', async () => {
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(earlyExitRegistro as never);
+
+    await expect(service.marcarSalida(user, {}, '127.0.0.1')).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'La salida se habilita 10 minutos antes de la hora de fin de la clase.',
+    } satisfies Partial<AppError>);
+
+    expect(prisma.registroAsistencia.update).not.toHaveBeenCalled();
+  });
+
+  it('permite marcar salida desde 10 minutos antes de la hora fin', async () => {
+    const closeToEndRegistro = {
+      ...openRegistro,
+      horario: {
+        ...openRegistro.horario,
+        hora_fin: '10:40',
+      },
+    };
+    const updatedRegistro = {
+      ...closeToEndRegistro,
+      timestamp_salida: new Date('2026-05-11T10:33:00.000Z'),
+    };
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(closeToEndRegistro as never);
+    vi.mocked(prisma.registroAsistencia.update).mockResolvedValue(updatedRegistro as never);
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+
+    await expect(service.marcarSalida(user, {}, '127.0.0.1')).resolves.toEqual(updatedRegistro);
   });
 });

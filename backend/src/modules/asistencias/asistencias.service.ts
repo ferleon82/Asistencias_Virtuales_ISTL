@@ -71,6 +71,17 @@ function endOfDay(date: Date): Date {
   return value;
 }
 
+function timeOnDate(date: Date, time: string): Date {
+  const [hours, minutes] = time.split(':').map(Number);
+  const value = new Date(date);
+  value.setHours(hours, minutes, 0, 0);
+  return value;
+}
+
+function subtractMinutes(date: Date, minutes: number): Date {
+  return new Date(date.getTime() - minutes * 60_000);
+}
+
 function buildRoleWhere(user: AuthScope): Prisma.RegistroAsistenciaWhereInput {
   if (user.rol === Rol.docente) {
     return { docente_id: user.id };
@@ -108,12 +119,21 @@ export class AsistenciasService {
     const horario = await this.findHorarioActivo(user.id, now);
     const registroAbierto = await this.findRegistroAbierto(user.id);
     const registroDelHorario = horario ? await this.findRegistroDelHorarioHoy(user.id, horario.id, now) : null;
+    const salidaDisponibleDesde = registroAbierto
+      ? subtractMinutes(timeOnDate(now, registroAbierto.horario.hora_fin), 10)
+      : null;
+    const puedeMarcarSalida = !!registroAbierto && !!salidaDisponibleDesde && now >= salidaDisponibleDesde;
 
     return {
       horarioActivo: horario,
       registroAbierto,
       puedeMarcarEntrada: !!horario && !registroAbierto && !registroDelHorario,
-      puedeMarcarSalida: !!registroAbierto,
+      puedeMarcarSalida,
+      salidaDisponibleDesde: salidaDisponibleDesde?.toISOString() ?? null,
+      salidaBloqueadaMotivo:
+        registroAbierto && !puedeMarcarSalida
+          ? 'La salida se habilita 10 minutos antes de la hora de fin de la clase.'
+          : null,
     };
   }
 
@@ -176,10 +196,16 @@ export class AsistenciasService {
       throw new AppError('No tiene una asistencia abierta para marcar salida.', 404);
     }
 
+    const now = nowInEcuador();
+    const salidaDisponibleDesde = subtractMinutes(timeOnDate(now, open.horario.hora_fin), 10);
+    if (now < salidaDisponibleDesde) {
+      throw new AppError('La salida se habilita 10 minutos antes de la hora de fin de la clase.', 400);
+    }
+
     const registro = await prisma.registroAsistencia.update({
       where: { id: open.id },
       data: {
-        timestamp_salida: nowInEcuador(),
+        timestamp_salida: now,
         ip_salida: ip,
         lat: location.lat ?? open.lat,
         lng: location.lng ?? open.lng,

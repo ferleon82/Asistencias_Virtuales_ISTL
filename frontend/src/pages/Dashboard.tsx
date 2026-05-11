@@ -36,6 +36,8 @@ interface EstadoAsistenciaActual {
   } | null;
   puedeMarcarEntrada: boolean;
   puedeMarcarSalida: boolean;
+  salidaDisponibleDesde?: string | null;
+  salidaBloqueadaMotivo?: string | null;
 }
 
 interface LocationPayload {
@@ -1067,9 +1069,16 @@ export default function Dashboard() {
                   <p className="mt-1 text-sm text-slate-200">Sin clase dentro de la ventana de marcado.</p>
                 )}
                 {estadoAsistencia?.registroAbierto && (
-                  <p className="mt-2 text-xs text-teal-100">
-                    Ingreso abierto: {new Date(estadoAsistencia.registroAbierto.timestamp_entrada ?? '').toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                  <div className="mt-2 space-y-1 text-xs text-teal-100">
+                    <p>
+                      Ingreso abierto: {new Date(estadoAsistencia.registroAbierto.timestamp_entrada ?? '').toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    {!estadoAsistencia.puedeMarcarSalida && estadoAsistencia.salidaDisponibleDesde && (
+                      <p>
+                        Salida disponible desde: {new Date(estadoAsistencia.salidaDisponibleDesde).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
               {attendanceMessage && (
@@ -1098,6 +1107,7 @@ export default function Dashboard() {
                   id="btn-marcar-salida"
                   onClick={() => void markAttendance('salida')}
                   disabled={attendanceLoading || !estadoAsistencia?.puedeMarcarSalida}
+                  title={estadoAsistencia?.salidaBloqueadaMotivo ?? undefined}
                   className="w-full py-3 px-4 rounded-md bg-white/20 text-white font-semibold text-sm hover:bg-white/30 disabled:bg-white/10 disabled:text-white/50 disabled:cursor-not-allowed transition-colors border border-white/30 flex items-center justify-center gap-2"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
