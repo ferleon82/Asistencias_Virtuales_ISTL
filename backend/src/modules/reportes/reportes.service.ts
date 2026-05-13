@@ -23,6 +23,9 @@ interface ReportRow {
   estado: string;
   justificacion: string;
   ip_entrada: string;
+  lat: number | null;
+  lng: number | null;
+  precision_m: number | null;
 }
 
 const asistenciaInclude = {
@@ -175,6 +178,9 @@ function toRows(registros: Awaited<ReturnType<typeof fetchRegistros>>): ReportRo
     estado: registro.estado,
     justificacion: registro.justificacion ?? '',
     ip_entrada: registro.ip_entrada ?? '',
+    lat: registro.lat ? Number(registro.lat) : null,
+    lng: registro.lng ? Number(registro.lng) : null,
+    precision_m: registro.precision_m,
   }));
 }
 

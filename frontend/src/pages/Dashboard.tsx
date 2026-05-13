@@ -75,6 +75,9 @@ interface ReportRow {
   estado: string;
   justificacion: string;
   ip_entrada: string;
+  lat?: number | string | null;
+  lng?: number | string | null;
+  precision_m?: number | null;
 }
 
 interface CarreraOption {
@@ -184,6 +187,9 @@ interface AsistenciaItem {
   id: string;
   timestamp_entrada: string | null;
   timestamp_salida: string | null;
+  lat?: number | string | null;
+  lng?: number | string | null;
+  precision_m?: number | null;
   estado: string;
   justificacion?: string | null;
   horario: {
@@ -243,6 +249,47 @@ function KpiCard({
         <div className={`p-3 rounded-md ${color}`}>{icon}</div>
       </div>
     </div>
+  );
+}
+
+function toMapCoordinate(value?: number | string | null): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getMapUrl(lat?: number | string | null, lng?: number | string | null): string | null {
+  const parsedLat = toMapCoordinate(lat);
+  const parsedLng = toMapCoordinate(lng);
+  if (parsedLat === null || parsedLng === null) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${parsedLat},${parsedLng}`;
+}
+
+function LocationLink({
+  lat,
+  lng,
+  precision,
+}: {
+  lat?: number | string | null;
+  lng?: number | string | null;
+  precision?: number | null;
+}) {
+  const mapUrl = getMapUrl(lat, lng);
+
+  if (!mapUrl) {
+    return <span className="text-xs text-slate-400">Sin GPS</span>;
+  }
+
+  return (
+    <a
+      href={mapUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-brand-navy hover:bg-istl-50"
+      title={precision ? `Precision aproximada: ${precision} m` : 'Ver ubicacion en mapa'}
+    >
+      Mapa{precision ? ` · ${precision} m` : ''}
+    </a>
   );
 }
 
@@ -1239,6 +1286,7 @@ export default function Dashboard() {
                         <th className="py-2 pr-4">Entrada</th>
                         <th className="py-2 pr-4">Salida</th>
                         <th className="py-2 pr-4">Estado</th>
+                        <th className="py-2 pr-4">Ubicacion</th>
                         <th className="py-2 pr-4">Justificacion</th>
                       </tr>
                     </thead>
@@ -1268,6 +1316,9 @@ export default function Dashboard() {
                             </span>
                           </td>
                           <td className="py-2 pr-4">
+                            <LocationLink lat={registro.lat} lng={registro.lng} precision={registro.precision_m} />
+                          </td>
+                          <td className="py-2 pr-4">
                             {registro.justificacion ? (
                               <span className="text-xs text-slate-500">
                                 {registro.estado === 'justificado' ? 'Aprobada' : 'Enviada'}
@@ -1289,7 +1340,7 @@ export default function Dashboard() {
                       ))}
                       {docenteHistorial.length === 0 && (
                         <tr>
-                          <td className="py-4 text-slate-500" colSpan={5}>Sin marcaciones recientes.</td>
+                          <td className="py-4 text-slate-500" colSpan={6}>Sin marcaciones recientes.</td>
                         </tr>
                       )}
                     </tbody>
@@ -2133,6 +2184,7 @@ export default function Dashboard() {
                   <th className="py-2 pr-4">Entrada</th>
                   <th className="py-2 pr-4">Salida</th>
                   <th className="py-2 pr-4">Estado</th>
+                  <th className="py-2 pr-4">Ubicacion</th>
                   <th className="py-2 pr-4">Justificacion</th>
                 </tr>
               </thead>
@@ -2148,6 +2200,9 @@ export default function Dashboard() {
                       <span className="rounded-full bg-istl-50 px-2 py-0.5 text-xs text-brand-navy">
                         {registro.estado}
                       </span>
+                    </td>
+                    <td className="py-2 pr-4">
+                      <LocationLink lat={registro.lat} lng={registro.lng} precision={registro.precision_m} />
                     </td>
                     <td className="py-2 pr-4">
                       {registro.justificacion ? (
@@ -2182,7 +2237,7 @@ export default function Dashboard() {
                 ))}
                 {(reportSummary?.registros?.length ?? 0) === 0 && (
                   <tr>
-                    <td className="py-4 text-slate-500" colSpan={7}>No hay registros para los filtros seleccionados.</td>
+                    <td className="py-4 text-slate-500" colSpan={8}>No hay registros para los filtros seleccionados.</td>
                   </tr>
                 )}
               </tbody>
