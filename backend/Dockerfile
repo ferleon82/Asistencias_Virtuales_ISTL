@@ -1,33 +1,38 @@
-# ─── Etapa Base ────────────────────────────────────────────────────────────────
+# Base
 FROM node:20-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache openssl
-COPY package*.json ./
-RUN npm ci --ignore-scripts
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
-# ─── Etapa de Desarrollo ────────────────────────────────────────────────────────
+# Desarrollo
 FROM base AS development
 ENV NODE_ENV=development
 COPY . .
-RUN npx prisma generate
+RUN pnpm exec prisma generate
 EXPOSE 3000
-CMD ["npm", "run", "dev"]
+CMD ["pnpm", "run", "dev"]
 
-# ─── Etapa de Build ─────────────────────────────────────────────────────────────
+# Build
 FROM base AS builder
 COPY . .
-RUN npx prisma generate
-RUN npm run build
+RUN pnpm exec prisma generate
+RUN pnpm run build
 
-# ─── Etapa de Producción ────────────────────────────────────────────────────────
+# Dependencias productivas
+FROM builder AS production-deps
+RUN pnpm prune --prod
+
+# Produccion
 FROM node:20-alpine AS production
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apk add --no-cache openssl
-COPY package*.json ./
-RUN npm ci --only=production --ignore-scripts
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
+COPY package.json pnpm-lock.yaml ./
+COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/prisma ./prisma
 EXPOSE 3000
 USER node

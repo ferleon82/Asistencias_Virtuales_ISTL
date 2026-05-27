@@ -1,9 +1,9 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 import { changePassword, getMe, googleCallback, googleLogin, login, logout, refreshToken } from './auth.controller';
 import { authenticate } from '../../shared/utils/jwt';
 import { loginRateLimiter } from '../../shared/middleware/rateLimiter';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 /**
  * @openapi

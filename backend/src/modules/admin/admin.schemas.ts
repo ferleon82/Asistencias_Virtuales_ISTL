@@ -24,9 +24,31 @@ export const materiaSchema = z.object({
   codigo: z.string().trim().min(2, 'Codigo requerido').max(30).toUpperCase(),
   carrera_id: z.string().uuid('Carrera requerida'),
   docente_id: z.string().uuid().nullable().optional(),
+  ciclo: z.coerce.number().int().min(1, 'Ciclo requerido').max(4, 'El ciclo debe estar entre 1 y 4'),
   creditos: z.coerce.number().int().min(1).max(12).default(3),
   activa: z.boolean().default(true),
 });
+
+const periodoAcademicoBaseSchema = z.object({
+  nombre: z.string().trim().min(3, 'Nombre requerido').max(120),
+  codigo: z.string().trim().min(2, 'Codigo requerido').max(30).toUpperCase(),
+  fecha_inicio: z.coerce.date(),
+  fecha_fin: z.coerce.date(),
+  activo: z.boolean().default(true),
+});
+
+export const periodoAcademicoSchema = periodoAcademicoBaseSchema
+  .refine((data) => data.fecha_inicio <= data.fecha_fin, {
+    message: 'La fecha de inicio debe ser anterior o igual a la fecha fin',
+    path: ['fecha_fin'],
+  });
+
+export const updatePeriodoAcademicoSchema = periodoAcademicoBaseSchema
+  .partial()
+  .refine((data) => !data.fecha_inicio || !data.fecha_fin || data.fecha_inicio <= data.fecha_fin, {
+    message: 'La fecha de inicio debe ser anterior o igual a la fecha fin',
+    path: ['fecha_fin'],
+  });
 
 export const idParamsSchema = z.object({
   id: z.string().uuid('ID invalido'),
@@ -59,5 +81,6 @@ export const updateUsuarioSchema = createUsuarioSchema
 
 export type CarreraInput = z.infer<typeof carreraSchema>;
 export type MateriaInput = z.infer<typeof materiaSchema>;
+export type PeriodoAcademicoInput = z.infer<typeof periodoAcademicoSchema>;
 export type CreateUsuarioInput = z.infer<typeof createUsuarioSchema>;
 export type UpdateUsuarioInput = z.infer<typeof updateUsuarioSchema>;

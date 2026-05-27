@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import api from '../lib/axios';
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────────
 
-export type Rol = 'docente' | 'coordinador' | 'tics' | 'rectorado';
+export type Rol = 'docente' | 'coordinador' | 'tics' | 'rectorado' | 'talento_humano';
 
 export interface AuthUser {
   id: string;
@@ -25,22 +25,50 @@ interface AuthContextValue {
 // ─── Context ────────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
+const LAST_ACTIVITY_KEY = 'lastActivityAt';
+
+function now(): number {
+  return Date.now();
+}
+
+function updateLastActivity(): void {
+  localStorage.setItem(LAST_ACTIVITY_KEY, String(now()));
+}
+
+function isSessionExpired(): boolean {
+  const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY) ?? 0);
+  return !!lastActivity && now() - lastActivity >= INACTIVITY_TIMEOUT_MS;
+}
 
 // ─── Provider ───────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const inactivityTimerRef = useRef<number | null>(null);
 
   // Restaurar sesión al cargar la app
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (token) {
+      if (isSessionExpired()) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem(LAST_ACTIVITY_KEY);
+        setIsLoading(false);
+        return;
+      }
+
       api.get('/auth/me')
-        .then(({ data }) => setUser(data.data))
+        .then(({ data }) => {
+          updateLastActivity();
+          setUser(data.data);
+        })
         .catch(() => {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
+          localStorage.removeItem(LAST_ACTIVITY_KEY);
         })
         .finally(() => setIsLoading(false));
     } else {
@@ -54,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     localStorage.setItem('accessToken', tokens.accessToken);
     localStorage.setItem('refreshToken', tokens.refreshToken);
+    updateLastActivity();
 
     setUser(authUser);
   }, []);
@@ -67,9 +96,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem(LAST_ACTIVITY_KEY);
       setUser(null);
     }
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
+      return undefined;
+    }
+
+    const closeSession = () => {
+      void logout();
+    };
+
+    const scheduleLogout = () => {
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current);
+      }
+
+      const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY) ?? now());
+      const remaining = Math.max(INACTIVITY_TIMEOUT_MS - (now() - lastActivity), 0);
+      inactivityTimerRef.current = window.setTimeout(closeSession, remaining);
+    };
+
+    const registerActivity = () => {
+      updateLastActivity();
+      scheduleLogout();
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === LAST_ACTIVITY_KEY) {
+        scheduleLogout();
+      }
+    };
+
+    const activityEvents: Array<keyof WindowEventMap> = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, registerActivity, { passive: true });
+    });
+    window.addEventListener('storage', handleStorage);
+
+    if (!localStorage.getItem(LAST_ACTIVITY_KEY)) {
+      updateLastActivity();
+    }
+    scheduleLogout();
+
+    return () => {
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, registerActivity);
+      });
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [logout, user]);
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout }}>

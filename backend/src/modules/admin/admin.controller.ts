@@ -6,6 +6,8 @@ import {
   createUsuarioSchema,
   idParamsSchema,
   materiaSchema,
+  periodoAcademicoSchema,
+  updatePeriodoAcademicoSchema,
   updateUsuarioSchema,
 } from './admin.schemas';
 
@@ -96,6 +98,46 @@ export async function listMaterias(req: Request, res: Response, next: NextFuncti
   try {
     const data = await adminService.listMaterias(requireUser(req));
     res.status(200).json({ ok: true, data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listPeriodosAcademicos(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const data = await adminService.listPeriodosAcademicos();
+    res.status(200).json({ ok: true, data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createPeriodoAcademico(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const payload = periodoAcademicoSchema.parse(req.body);
+    const data = await adminService.createPeriodoAcademico(payload, requireUser(req), getClientIp(req));
+    res.status(201).json({ ok: true, message: 'Periodo academico creado correctamente.', data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updatePeriodoAcademico(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = idParamsSchema.parse(req.params);
+    const payload = updatePeriodoAcademicoSchema.parse(req.body);
+    const data = await adminService.updatePeriodoAcademico(id, payload, requireUser(req), getClientIp(req));
+    res.status(200).json({ ok: true, message: 'Periodo academico actualizado correctamente.', data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deactivatePeriodoAcademico(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = idParamsSchema.parse(req.params);
+    const data = await adminService.deactivatePeriodoAcademico(id, requireUser(req), getClientIp(req));
+    res.status(200).json({ ok: true, message: 'Periodo academico desactivado correctamente.', data });
   } catch (error) {
     next(error);
   }

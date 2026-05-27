@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 import { Rol } from '@prisma/client';
 import { authenticate } from '../../shared/utils/jwt';
 import { roleGuard } from '../../shared/middleware/roleGuard';
@@ -10,10 +10,10 @@ import {
   updateHorario,
 } from './horarios.controller';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
-const canReadHorarios = roleGuard(Rol.docente, Rol.coordinador, Rol.tics, Rol.rectorado);
-const canManageHorarios = roleGuard(Rol.coordinador, Rol.tics, Rol.rectorado);
+const canReadHorarios = roleGuard(Rol.docente, Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano);
+const canManageHorarios = roleGuard(Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano);
 
 router.use(authenticate);
 

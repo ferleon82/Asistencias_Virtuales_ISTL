@@ -30,10 +30,10 @@ export function roleGuard(...allowedRoles: Rol[]) {
 export const soloDocente = [authenticate, roleGuard(Rol.docente)];
 
 /** Solo coordinadores y superiores */
-export const soloCoordinador = [authenticate, roleGuard(Rol.coordinador, Rol.tics, Rol.rectorado)];
+export const soloCoordinador = [authenticate, roleGuard(Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano)];
 
-/** Solo TICs y Rectorado */
-export const soloAdministrador = [authenticate, roleGuard(Rol.tics, Rol.rectorado)];
+/** Solo TICs, Rectorado y Talento Humano */
+export const soloAdministrador = [authenticate, roleGuard(Rol.tics, Rol.rectorado, Rol.talento_humano)];
 
 /** Todos los roles autenticados */
-export const todoRol = [authenticate, roleGuard(Rol.docente, Rol.coordinador, Rol.tics, Rol.rectorado)];
+export const todoRol = [authenticate, roleGuard(Rol.docente, Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano)];

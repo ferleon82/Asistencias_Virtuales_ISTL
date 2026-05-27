@@ -5,6 +5,7 @@ export const reporteQuerySchema = z
   .object({
     carrera_id: z.string().uuid().optional(),
     materia_id: z.string().uuid().optional(),
+    periodo_academico_id: z.string().uuid().optional(),
     docente_id: z.string().uuid().optional(),
     fecha_inicio: z.coerce.date().optional(),
     fecha_fin: z.coerce.date().optional(),

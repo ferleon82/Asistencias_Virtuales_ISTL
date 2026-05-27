@@ -54,42 +54,38 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-2xl border border-slate-200 animate-slide-up">
-        <div className="grid min-h-[620px] grid-cols-1 lg:grid-cols-[1fr_420px]">
-          <section className="bg-brand-navy p-8 sm:p-10 flex flex-col justify-between">
-            <div>
+    <div className="flex min-h-screen items-center justify-center px-4 py-8">
+      <div className="w-full max-w-6xl overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl animate-slide-up">
+        <div className="grid min-h-[640px] grid-cols-1 lg:grid-cols-[1.15fr_440px]">
+          <section className="relative flex flex-col items-center justify-center overflow-hidden bg-brand-navy p-8 text-center sm:p-10">
+            <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-brand-ink/70 to-transparent" />
+            <div className="relative z-10 flex w-full max-w-xl flex-col items-center">
               <img
                 src="/brand/istl-logo-white.png"
                 alt="Instituto Superior Tecnologico Loja"
-                className="h-28 w-auto object-contain object-left"
+                className="h-36 w-auto object-contain"
               />
-              <div className="mt-10 max-w-xl">
-                <p className="font-brand text-sm uppercase text-istl-200">Sistema Institucional</p>
-                <h1 className="font-brand text-4xl sm:text-5xl font-bold text-white mt-3 leading-tight">
+              <div className="mt-12">
+                <p className="text-xs font-semibold uppercase text-istl-200">Sistema institucional</p>
+                <h1 className="mt-3 font-brand text-4xl font-bold leading-tight text-white sm:text-5xl">
                   Asistencia Virtual Docente
                 </h1>
-                <p className="mt-4 text-sm leading-6 text-slate-200">
-                  Registro academico para clases virtuales, control de horarios y seguimiento operativo docente.
+                <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-slate-200 sm:text-base">
+                  Registro academico para clases virtuales, control de horarios, geolocalizacion autorizada y reportes institucionales.
                 </p>
               </div>
             </div>
-
-            <div className="mt-10 flex items-center gap-3 border-t border-white/15 pt-5">
-              <span className="h-2 w-16 bg-brand-teal" />
-              <p className="text-xs uppercase text-slate-300">Define tu futuro</p>
-            </div>
           </section>
 
-          <section className="p-7 sm:p-9 flex flex-col justify-center">
+          <section className="flex flex-col justify-center p-7 sm:p-9">
             <div className="mb-8">
               <img
                 src="/brand/istl-logo-horizontal.png"
                 alt="Instituto Superior Tecnologico Loja"
                 className="h-14 w-auto object-contain object-left"
               />
-              <h2 className="font-brand text-2xl font-bold text-brand-navy mt-7">Ingreso al sistema</h2>
-              <p className="text-sm text-slate-500 mt-1">Use sus credenciales institucionales.</p>
+              <h2 className="mt-7 font-brand text-2xl font-bold text-brand-navy">Ingreso al sistema</h2>
+              <p className="mt-1 text-sm text-slate-500">Use sus credenciales institucionales.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>
@@ -112,7 +108,7 @@ export default function Login() {
                     placeholder="nombre@tecnologicoloja.edu.ec"
                     required
                     autoComplete="email"
-                    className="w-full pl-10 pr-4 py-3 rounded-md bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal focus:border-transparent transition-all text-sm"
+                    className="w-full py-3 pl-10 pr-4"
                   />
                 </div>
               </div>
@@ -139,7 +135,7 @@ export default function Login() {
                     placeholder="********"
                     required
                     autoComplete="current-password"
-                    className="w-full pl-10 pr-12 py-3 rounded-md bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-teal focus:border-transparent transition-all text-sm"
+                    className="w-full py-3 pl-10 pr-12"
                   />
                   <button
                     type="button"
@@ -176,7 +172,7 @@ export default function Login() {
                 type="submit"
                 disabled={isSubmitting || !email || !password}
                 id="btn-login"
-                className="w-full py-3.5 px-6 rounded-md bg-brand-navy hover:bg-brand-ink disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold text-sm transition-all duration-200 shadow-lg shadow-slate-300 flex items-center justify-center gap-2"
+                className="btn-primary flex w-full items-center justify-center gap-2 py-3.5 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Verificando credenciales...' : 'Iniciar sesion'}
               </button>
@@ -196,7 +192,7 @@ export default function Login() {
                 onClick={() => {
                   window.location.href = `${API_URL}/api/v1/auth/google`;
                 }}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="btn-secondary mt-4 flex w-full items-center justify-center gap-2 py-3"
               >
                 <span className="font-bold text-blue-600">G</span>
                 Google institucional

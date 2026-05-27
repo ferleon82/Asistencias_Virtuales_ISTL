@@ -27,12 +27,29 @@ describe('admin schemas', () => {
       codigo: 'pw-101',
       carrera_id: '11111111-1111-4111-8111-111111111111',
       docente_id: null,
+      ciclo: 2,
       creditos: 4,
       activa: true,
     });
 
     expect(result.success).toBe(true);
-    if (result.success) expect(result.data.codigo).toBe('PW-101');
+    if (result.success) {
+      expect(result.data.codigo).toBe('PW-101');
+      expect(result.data.ciclo).toBe(2);
+    }
+  });
+
+  it('rechaza materia fuera del rango de ciclos', () => {
+    const result = materiaSchema.safeParse({
+      nombre: 'Programacion Web',
+      codigo: 'pw-101',
+      carrera_id: '11111111-1111-4111-8111-111111111111',
+      ciclo: 5,
+      creditos: 4,
+      activa: true,
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it('rechaza usuarios con correo no institucional', () => {

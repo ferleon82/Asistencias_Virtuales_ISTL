@@ -18,6 +18,7 @@ enum Rol {
   coordinador
   tics
   rectorado
+  talento_humano
 }
 
 enum DiaSemana {
@@ -106,6 +107,7 @@ model Materia {
   codigo     String  @unique
   carrera_id String
   docente_id String?
+  ciclo      Int     @default(1)
   creditos   Int     @default(3)
   activa     Boolean @default(true)
 
@@ -117,13 +119,32 @@ model Materia {
   clases_recuperacion ClaseRecuperacion[]
 
   @@index([carrera_id])
+  @@index([carrera_id, ciclo])
   @@index([docente_id])
   @@map("materias")
+}
+
+model PeriodoAcademico {
+  id           String   @id @default(uuid())
+  nombre       String
+  codigo       String   @unique
+  fecha_inicio DateTime @db.Date
+  fecha_fin    DateTime @db.Date
+  activo       Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  horarios Horario[]
+
+  @@index([activo])
+  @@index([fecha_inicio, fecha_fin])
+  @@map("periodos_academicos")
 }
 
 model Horario {
   id                 String    @id @default(uuid())
   materia_id         String
+  periodo_academico_id String?
   dia_semana         DiaSemana
   hora_inicio        String    // formato HH:mm
   hora_fin           String    // formato HH:mm
@@ -137,9 +158,11 @@ model Horario {
   created_at DateTime @default(now())
 
   materia              Materia              @relation(fields: [materia_id], references: [id], onDelete: Cascade)
+  periodo_academico    PeriodoAcademico?    @relation(fields: [periodo_academico_id], references: [id], onDelete: SetNull)
   registros_asistencia RegistroAsistencia[]
 
   @@index([materia_id])
+  @@index([periodo_academico_id])
   @@index([dia_semana, ciclo])
   @@map("horarios")
 }

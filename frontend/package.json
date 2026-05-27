@@ -2,6 +2,7 @@
   "name": "istl-asistencia-frontend",
   "version": "1.0.0",
   "description": "Sistema de Asistencia Virtual Docente ISTL — Frontend",
+  "packageManager": "pnpm@9.15.9",
   "type": "module",
   "scripts": {
     "dev": "vite",

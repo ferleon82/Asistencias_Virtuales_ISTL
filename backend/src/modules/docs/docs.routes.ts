@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 import { openApiSpec } from './openapi';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 function renderDocs(): string {
   const endpoints = Object.entries(openApiSpec.paths)

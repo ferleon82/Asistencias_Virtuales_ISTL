@@ -9,6 +9,7 @@ interface AuthScope {
 }
 
 const horarioInclude = {
+  periodo_academico: true,
   materia: {
     select: {
       id: true,
@@ -50,6 +51,7 @@ function buildRoleWhere(user: AuthScope): Prisma.HorarioWhereInput {
 function buildFilterWhere(filters: HorarioQueryInput): Prisma.HorarioWhereInput {
   return {
     materia_id: filters.materia_id,
+    periodo_academico_id: filters.periodo_academico_id,
     dia_semana: filters.dia_semana,
     ciclo: filters.ciclo,
     modalidad: filters.modalidad,
@@ -101,14 +103,15 @@ export class HorariosService {
 
   async create(data: CreateHorarioInput, user: AuthScope, ip: string) {
     await this.assertMateriaManageable(data.materia_id, user);
-    await this.assertNoOverlap(data);
+    const normalizedData = await this.normalizePeriodo(data);
+    await this.assertNoOverlap(normalizedData);
 
     const horario = await prisma.horario.create({
-      data,
+      data: normalizedData,
       include: horarioInclude,
     });
 
-    await this.audit(user.id, 'CREATE_HORARIO', horario.id, ip, null, data);
+    await this.audit(user.id, 'CREATE_HORARIO', horario.id, ip, null, normalizedData);
 
     return horario;
   }
@@ -122,8 +125,9 @@ export class HorariosService {
     }
 
     await this.assertNoOverlap(
-      {
+      await this.normalizePeriodo({
         materia_id: nextMateriaId,
+        periodo_academico_id: data.periodo_academico_id ?? current.periodo_academico_id ?? undefined,
         dia_semana: data.dia_semana ?? current.dia_semana,
         hora_inicio: data.hora_inicio ?? current.hora_inicio,
         hora_fin: data.hora_fin ?? current.hora_fin,
@@ -133,13 +137,15 @@ export class HorariosService {
         activo: data.activo ?? current.activo,
         fecha_inicio_ciclo: data.fecha_inicio_ciclo ?? current.fecha_inicio_ciclo,
         fecha_fin_ciclo: data.fecha_fin_ciclo ?? current.fecha_fin_ciclo,
-      },
+      }),
       id
     );
 
+    const normalizedData = await this.normalizePeriodo(data, current);
+
     const horario = await prisma.horario.update({
       where: { id },
-      data,
+      data: normalizedData,
       include: horarioInclude,
     });
 
@@ -206,8 +212,9 @@ export class HorariosService {
       where: {
         id: excludeId ? { not: excludeId } : undefined,
         materia_id: data.materia_id,
+        periodo_academico_id: data.periodo_academico_id ?? undefined,
         dia_semana: data.dia_semana,
-        ciclo: data.ciclo,
+        ciclo: data.periodo_academico_id ? undefined : data.ciclo,
         activo: true,
       },
       select: {
@@ -223,6 +230,30 @@ export class HorariosService {
     if (hasOverlap) {
       throw new AppError('Ya existe un horario activo que se cruza para esta materia, dia y ciclo.', 409);
     }
+  }
+
+  private async normalizePeriodo<T extends Partial<CreateHorarioInput>>(
+    data: T,
+    current?: { periodo_academico_id: string | null; ciclo: string; fecha_inicio_ciclo: Date; fecha_fin_ciclo: Date }
+  ): Promise<T> {
+    const periodoId = data.periodo_academico_id ?? current?.periodo_academico_id;
+    if (!periodoId) return data;
+
+    const periodo = await prisma.periodoAcademico.findUnique({
+      where: { id: periodoId },
+    });
+
+    if (!periodo || !periodo.activo) {
+      throw new AppError('Periodo academico no encontrado o inactivo.', 404);
+    }
+
+    return {
+      ...data,
+      periodo_academico_id: periodo.id,
+      ciclo: periodo.codigo,
+      fecha_inicio_ciclo: periodo.fecha_inicio,
+      fecha_fin_ciclo: periodo.fecha_fin,
+    };
   }
 
   private async audit(

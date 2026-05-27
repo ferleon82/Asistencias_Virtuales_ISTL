@@ -1,17 +1,36 @@
-# ISTL — Sistema de Asistencia Virtual Docente
+# ISTL - Sistema de Asistencia Virtual Docente
 
-Sistema web para el registro de asistencia de docentes en modalidad híbrida del **Instituto Superior Tecnológico Loja (ISTL)**.
+Sistema web para el registro, control y reporte de asistencia docente en modalidad presencial, virtual o hibrida del **Instituto Superior Tecnologico Loja (ISTL)**.
+
+El proyecto se encuentra en estado **MVP funcional**: permite autenticacion institucional, administracion academica basica, gestion de horarios, marcacion de entrada/salida, control de duplicados, geolocalizacion opcional y reportes.
 
 ---
 
-## Stack Tecnológico
+## Estado Actual
 
-| Capa | Tecnología |
+- Login institucional con Google OAuth para cuentas `@tecnologicoloja.edu.ec`.
+- Login por correo/contrasena disponible como contingencia administrativa.
+- Roles principales: TICs, Rectorado, Coordinador y Docente.
+- Administracion de usuarios, carreras, materias, docentes y horarios.
+- Marcacion docente de entrada y salida con reglas de horario.
+- Bloqueo de marcaciones duplicadas por clase y dia.
+- Salida habilitada solo desde 10 minutos antes de la hora de fin configurada.
+- Registro de geolocalizacion cuando el navegador entrega permiso.
+- Visualizacion de ubicacion GPS mediante enlace a Google Maps.
+- Reportes con filtros y exportacion PDF/Excel.
+- API documentada en Swagger/OpenAPI.
+- Docker Compose para levantar frontend, backend, PostgreSQL y Redis.
+
+---
+
+## Stack Tecnologico
+
+| Capa | Tecnologia |
 |---|---|
 | Frontend | React 18 + TypeScript + Vite + Tailwind CSS |
 | Backend | Node.js + Express + TypeScript |
-| Base de Datos | PostgreSQL 16 + Prisma ORM |
-| Caché / Colas | Redis 7 + Bull |
+| Base de datos | PostgreSQL 16 + Prisma ORM |
+| Cache / colas | Redis 7 + Bull |
 | Contenedores | Docker + Docker Compose |
 | Tests | Vitest |
 
@@ -19,39 +38,52 @@ Sistema web para el registro de asistencia de docentes en modalidad híbrida del
 
 ## Requisitos Previos
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) ≥ 4.x
-- [Node.js](https://nodejs.org/) ≥ 20.x (solo para desarrollo local sin Docker)
-- Git
+- Docker Desktop 4.x o superior.
+- Node.js 20.x o superior y pnpm 9.x, solo para desarrollo local sin Docker.
+- Git.
+- Credenciales OAuth de Google Cloud para el inicio de sesion institucional.
 
 ---
 
-## Instalación Rápida (Docker — Recomendado)
+## Instalacion Rapida con Docker
 
-### 1. Clonar e inicializar variables de entorno
+### 1. Configurar variables de entorno
+
+Copiar el archivo de ejemplo:
 
 ```bash
-git clone https://github.com/istl/asistencia-virtual.git
-cd Asistencias_Virtuales_ISTL
-
-# Copiar y editar variables de entorno
 cp .env.example .env
-# ⚠️ Editar .env con tus credenciales reales antes de continuar
 ```
 
-### 2. Levantar todos los servicios
+Editar `.env` y completar los valores reales:
+
+```env
+POSTGRES_PASSWORD=...
+REDIS_PASSWORD=...
+JWT_ACCESS_SECRET=...
+JWT_REFRESH_SECRET=...
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/v1/auth/google/callback
+GOOGLE_ALLOWED_DOMAIN=tecnologicoloja.edu.ec
+```
+
+Importante: `.env` y los archivos `client_secret_*.json` no deben subirse al repositorio.
+
+### 2. Levantar servicios
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-### 3. Ejecutar migraciones de base de datos
+### 3. Ejecutar migraciones y seed
 
 ```bash
-docker-compose exec backend npx prisma migrate deploy
-docker-compose exec backend npx prisma db seed
+docker compose exec backend pnpm exec prisma migrate deploy
+docker compose exec backend pnpm run db:seed
 ```
 
-### 4. Acceder a la aplicación
+### 4. Acceder a la aplicacion
 
 | Servicio | URL |
 |---|---|
@@ -60,191 +92,220 @@ docker-compose exec backend npx prisma db seed
 | Health Check | http://localhost:3000/health |
 | API Docs | http://localhost:3000/api/docs |
 | OpenAPI JSON | http://localhost:3000/api/openapi.json |
-| Prisma Studio | `docker-compose exec backend npm run db:studio` |
+| Prisma Studio | `docker compose exec backend pnpm run db:studio` |
 
 ---
 
-## Instalación para Desarrollo Local (sin Docker)
+## Configuracion de Google OAuth
+
+En Google Cloud Console, el cliente OAuth debe ser de tipo **Aplicacion web**.
+
+Configurar:
+
+| Seccion | Valor local |
+|---|---|
+| Origenes autorizados de JavaScript | `http://localhost:5173` |
+| URI de redireccionamiento autorizado | `http://localhost:3000/api/v1/auth/google/callback` |
+
+Notas:
+
+- El origen JavaScript no debe incluir ruta, solo protocolo, host y puerto.
+- El callback si debe ir en **URIs de redireccionamiento autorizados**.
+- El backend valida que el correo pertenezca al dominio configurado en `GOOGLE_ALLOWED_DOMAIN`.
+- El usuario debe existir previamente en la plataforma para conservar el control de roles.
+
+---
+
+## Desarrollo Local sin Docker
 
 ### Backend
 
 ```bash
 cd backend
-npm install
-
-# Configurar variables de entorno
-cp .env.example .env
-# Editar .env con DATABASE_URL y REDIS_URL locales
-
-# Generar cliente Prisma
-npm run db:generate
-
-# Ejecutar migraciones
-npm run db:migrate
-
-# Iniciar en modo desarrollo (hot-reload)
-npm run dev
+pnpm install
+pnpm run db:generate
+pnpm run db:migrate
+pnpm run dev
 ```
 
 ### Frontend
 
 ```bash
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 ---
 
-## Ejecutar Tests
+## Comandos de Verificacion
+
+### Backend
 
 ```bash
 cd backend
+pnpm test
+pnpm run build
+```
 
-# Todos los tests
-npm test
+### Frontend
 
-# Con coverage
-npm run test:coverage
+```bash
+cd frontend
+pnpm run build
+```
 
-# Watch mode
-npm run test:watch
+### Docker
+
+```bash
+docker compose ps
+docker compose logs -f backend
+docker compose logs -f frontend
 ```
 
 ---
 
 ## Usuarios de Prueba
 
-Después de ejecutar `npm run db:seed`:
+Despues de ejecutar el seed:
 
-| Rol | Email | Contraseña |
+| Rol | Email | Contrasena |
 |---|---|---|
 | TICs | `admin@tecnologicoloja.edu.ec` | `Password123` |
 | Docente | `docente@tecnologicoloja.edu.ec` | `Password123` |
 
-El seed crea una clase de desarrollo para el docente en el día actual, con una ventana cercana a la hora de ejecución del seed.
+El seed crea datos de desarrollo para validar el flujo inicial. Para pruebas reales se recomienda crear carreras, materias, docentes y horarios desde el panel administrativo.
 
 ---
 
-## Estructura del Proyecto
+## Reglas de Marcacion
 
-```
-Asistencias_Virtuales_ISTL/
-├── backend/          # API REST (Node.js + Express)
-│   ├── prisma/       # Schema y migraciones
-│   └── src/
-│       ├── config/   # DB, Redis, env
-│       ├── modules/  # Auth, asistencia, reportes...
-│       └── shared/   # Middleware, utils
-├── frontend/         # React 18 + Vite
-│   └── src/
-│       ├── contexts/ # AuthContext
-│       ├── pages/    # Login, Dashboard...
-│       └── lib/      # Axios, QueryClient
-├── docker-compose.yml
-└── .env.example
-```
+- El docente solo puede marcar dentro de una clase activa del dia.
+- Una vez registrada entrada y salida para una clase, no se puede volver a marcar la misma clase.
+- La salida queda bloqueada despues de marcar entrada y se habilita desde 10 minutos antes de la hora de fin del horario.
+- Si la clase ya finalizo, no se habilita como clase activa para nuevas marcaciones.
+- La geolocalizacion depende del permiso del navegador y del dispositivo.
+- Si existe GPS, el sistema guarda latitud, longitud y precision aproximada en metros.
 
 ---
 
-## Variables de Entorno
+## Reportes
 
-Ver `.env.example` en la raíz del proyecto para la lista completa de variables requeridas.
+El modulo de reportes permite consultar asistencia por filtros como carrera, materia, docente, estado y ciclo.
 
-> ⚠️ **NUNCA** incluir `.env` en el repositorio. Está excluido por `.gitignore`.
+Los reportes incluyen:
+
+- Resumen estadistico.
+- Vista previa de marcaciones.
+- Coordenadas GPS cuando estan disponibles.
+- Enlace a Google Maps para revisar la ubicacion registrada.
+- Exportacion PDF con encabezado institucional, resumen y detalle paginado.
+- Exportacion Excel.
+
+La especificacion OpenAPI documenta los endpoints principales, OAuth institucional, GPS, estados de marcacion y exportaciones.
 
 ---
 
-## API Endpoints (v1)
+## API Endpoints Principales
 
-| Método | Ruta | Descripción | Auth |
+| Metodo | Ruta | Descripcion | Auth |
 |---|---|---|---|
-| `POST` | `/api/v1/auth/login` | Iniciar sesión | Público |
-| `GET` | `/api/v1/auth/google` | Iniciar sesión con Google institucional | Público |
-| `GET` | `/api/v1/auth/google/callback` | Callback OAuth de Google | Público |
-| `POST` | `/api/v1/auth/refresh` | Renovar token | Público |
-| `POST` | `/api/v1/auth/logout` | Cerrar sesión | JWT |
-| `GET` | `/api/v1/auth/me` | Perfil del usuario | JWT |
-| `PUT` | `/api/v1/auth/change-password` | Cambiar contraseña | JWT |
-| `GET` | `/api/v1/horarios` | Listar horarios según rol y filtros | JWT |
-| `GET` | `/api/v1/horarios/:id` | Obtener detalle de horario | JWT |
+| `POST` | `/api/v1/auth/login` | Iniciar sesion con correo/contrasena | Publico |
+| `GET` | `/api/v1/auth/google` | Iniciar sesion con Google institucional | Publico |
+| `GET` | `/api/v1/auth/google/callback` | Callback OAuth de Google | Publico |
+| `POST` | `/api/v1/auth/refresh` | Renovar token | Publico |
+| `POST` | `/api/v1/auth/logout` | Cerrar sesion | JWT |
+| `GET` | `/api/v1/auth/me` | Perfil del usuario autenticado | JWT |
+| `GET` | `/api/v1/horarios` | Listar horarios segun rol y filtros | JWT |
 | `POST` | `/api/v1/horarios` | Crear horario | Coordinador/TICs/Rectorado |
 | `PUT` | `/api/v1/horarios/:id` | Actualizar horario | Coordinador/TICs/Rectorado |
 | `DELETE` | `/api/v1/horarios/:id` | Desactivar horario | Coordinador/TICs/Rectorado |
-| `GET` | `/api/v1/asistencias` | Listar registros de asistencia según rol | JWT |
-| `GET` | `/api/v1/asistencias/estado-actual` | Clase activa y registro abierto del docente | Docente |
-| `POST` | `/api/v1/asistencias/entrada` | Marcar ingreso con geolocalización opcional | Docente |
-| `POST` | `/api/v1/asistencias/salida` | Marcar salida con geolocalización opcional | Docente |
-| `GET` | `/api/v1/reportes/resumen` | Resumen estadístico de asistencias | JWT |
+| `GET` | `/api/v1/asistencias` | Listar asistencias segun rol | JWT |
+| `GET` | `/api/v1/asistencias/estado-actual` | Clase activa y registro abierto | Docente |
+| `POST` | `/api/v1/asistencias/entrada` | Marcar ingreso | Docente |
+| `POST` | `/api/v1/asistencias/salida` | Marcar salida | Docente |
+| `GET` | `/api/v1/reportes/resumen` | Resumen estadistico | JWT |
 | `GET` | `/api/v1/reportes/pdf` | Descargar reporte PDF | JWT |
 | `GET` | `/api/v1/reportes/excel` | Descargar reporte Excel | JWT |
-| `GET` | `/api/v1/admin/usuarios` | Listar usuarios institucionales | TICs/Rectorado |
+| `GET` | `/api/v1/admin/usuarios` | Listar usuarios | TICs/Rectorado |
 | `POST` | `/api/v1/admin/usuarios` | Crear usuario | TICs/Rectorado |
-| `PUT` | `/api/v1/admin/usuarios/:id` | Actualizar usuario o reiniciar contrasena | TICs/Rectorado |
-| `GET` | `/api/v1/admin/carreras` | Listar carreras según rol | Coordinador/TICs/Rectorado |
+| `PUT` | `/api/v1/admin/usuarios/:id` | Actualizar usuario | TICs/Rectorado |
+| `GET` | `/api/v1/admin/carreras` | Listar carreras | Coordinador/TICs/Rectorado |
 | `POST` | `/api/v1/admin/carreras` | Crear carrera | TICs/Rectorado |
 | `PUT` | `/api/v1/admin/carreras/:id` | Actualizar carrera | TICs/Rectorado |
-| `GET` | `/api/v1/admin/materias` | Listar materias según rol | Coordinador/TICs/Rectorado |
+| `GET` | `/api/v1/admin/materias` | Listar materias | Coordinador/TICs/Rectorado |
 | `POST` | `/api/v1/admin/materias` | Crear materia | Coordinador/TICs/Rectorado |
 | `PUT` | `/api/v1/admin/materias/:id` | Actualizar materia | Coordinador/TICs/Rectorado |
 | `GET` | `/api/v1/admin/docentes` | Listar docentes activos | Coordinador/TICs/Rectorado |
-| `GET` | `/api/docs` | Documentación HTML de la API | Público |
-| `GET` | `/api/openapi.json` | Especificación OpenAPI 3.0 | Público |
-| `GET` | `/health` | Estado del servidor | Público |
+| `GET` | `/api/docs` | Documentacion HTML de la API | Publico |
+| `GET` | `/api/openapi.json` | Especificacion OpenAPI | Publico |
+| `GET` | `/health` | Estado del servidor | Publico |
 
 ---
 
 ## Seguridad
 
-- Rate limiting general de API configurable con `API_RATE_LIMIT_MAX`/`API_RATE_LIMIT_WINDOW_MS`
-- Rate limiting de login: **5 intentos fallidos** por IP cada 15 minutos
-- Tokens JWT: Access (8h) + Refresh con rotación (7d)
-- CORS restringido a dominios ISTL en producción
-- Contraseñas hasheadas con bcrypt (12 rounds)
-- Logs de auditoría de todos los accesos
+- Rate limiting general configurable con `API_RATE_LIMIT_MAX` y `API_RATE_LIMIT_WINDOW_MS`.
+- Rate limiting estricto de login: 5 intentos fallidos por IP cada 15 minutos.
+- Tokens JWT de acceso y refresh.
+- Refresh token con rotacion.
+- Contrasenas hasheadas con bcrypt.
+- CORS configurable para produccion.
+- Control de acceso por roles.
+- Registro de auditoria para eventos relevantes.
 
 ---
 
-## Módulos Disponibles (Roadmap)
+## Estructura del Proyecto
 
-- [x] Autenticación (JWT + roles)
-- [x] Gestión de horarios
-- [x] Registro de asistencia + geolocalización
-- [x] Panel de reportes (PDF + Excel)
-- [x] API pública OpenAPI 3.0
-- [x] Inicio de sesión institucional con Google OAuth (`@tecnologicoloja.edu.ec`)
-  - Acceso principal mediante cuenta Google institucional.
-  - Mantener login por contraseña solo como contingencia/admin local.
-  - Permitir ingreso solo a usuarios existentes en la plataforma para conservar control de roles.
-  - Requiere `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, callback OAuth y dominio autorizado.
+```text
+Asistencias_Virtuales_ISTL/
+|-- backend/              # API REST Node.js + Express
+|   |-- prisma/           # Schema, migraciones y seed
+|   |-- src/
+|       |-- config/       # DB, Redis, env
+|       |-- modules/      # Auth, asistencias, horarios, reportes, admin
+|       |-- shared/       # Middleware y utilidades
+|-- frontend/             # React + Vite
+|   |-- src/
+|       |-- contexts/     # AuthContext
+|       |-- pages/        # Login y Dashboard
+|       |-- lib/          # Axios y QueryClient
+|-- docker-compose.yml
+|-- .env.example
+```
 
 ---
 
-## Validación Operativa
+## Validacion Operativa Recomendada
 
-Antes de pasar a un piloto institucional, validar este flujo con datos reales:
+Antes de pasar a un piloto institucional:
 
-1. Crear usuarios de prueba para TICs, coordinación y docentes.
-2. Crear carreras, materias y asignar docentes/coordinadores.
-3. Crear horarios del ciclo vigente con modalidad y URL de aula virtual.
-4. Ingresar como docente y validar horario del día, aula virtual, entrada, salida y justificación.
-5. Ingresar como coordinación/TICs y aprobar o rechazar justificaciones.
-6. Generar reportes con filtros por carrera, materia, docente, estado y ciclo.
-7. Descargar PDF/Excel y verificar que coincidan con la vista previa.
+1. Crear usuarios reales para TICs, coordinacion, rectorado y docentes.
+2. Crear carreras y materias reales.
+3. Asignar docentes y coordinadores.
+4. Crear horarios del ciclo vigente.
+5. Probar login institucional con Google.
+6. Probar marcacion desde computador y celular.
+7. Validar permiso de ubicacion GPS en navegadores usados por docentes.
+8. Confirmar que la salida se habilite solo en la ventana permitida.
+9. Generar reportes por carrera, materia, docente, estado y ciclo.
+10. Descargar PDF/Excel y comparar contra la vista previa.
 
-Pruebas automáticas actuales:
+---
 
-- Autenticación y JWT.
-- Validaciones de administración: usuarios, carreras y materias.
-- Validaciones de horarios.
-- Validaciones de filtros de reportes.
+## Pendientes Tecnicos Recomendados
+
+1. Dividir `Dashboard.tsx` en componentes mas pequenos para facilitar mantenimiento.
+2. Definir texto de privacidad/consentimiento para el uso de geolocalizacion.
+3. Revisar despliegue productivo: HTTPS, dominio real, secretos, backups y URI OAuth definitivo.
 
 ---
 
 ## Soporte
 
-Contactar al **Área de TICs** del ISTL: `tics@tecnologicoloja.edu.ec`
+Contactar al Area de TICs del ISTL: `tics@tecnologicoloja.edu.ec`
 
 ---
 
-*Desarrollado para el Instituto Superior Tecnológico Loja — Ministerio de Educación del Ecuador*
+Desarrollado para el Instituto Superior Tecnologico Loja.

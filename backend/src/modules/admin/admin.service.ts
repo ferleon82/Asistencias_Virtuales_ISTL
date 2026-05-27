@@ -2,7 +2,13 @@ import { Prisma, Rol } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/database';
 import { AppError } from '../../shared/middleware/errorHandler';
-import type { CarreraInput, CreateUsuarioInput, MateriaInput, UpdateUsuarioInput } from './admin.schemas';
+import type {
+  CarreraInput,
+  CreateUsuarioInput,
+  MateriaInput,
+  PeriodoAcademicoInput,
+  UpdateUsuarioInput,
+} from './admin.schemas';
 
 interface AuthScope {
   id: string;
@@ -10,7 +16,7 @@ interface AuthScope {
 }
 
 function isFullAdmin(user: AuthScope): boolean {
-  return user.rol === Rol.tics || user.rol === Rol.rectorado;
+  return user.rol === Rol.tics || user.rol === Rol.rectorado || user.rol === Rol.talento_humano;
 }
 
 function carreraScope(user: AuthScope): Prisma.CarreraWhereInput {
@@ -23,7 +29,7 @@ function carreraScope(user: AuthScope): Prisma.CarreraWhereInput {
 export class AdminService {
   private assertFullAdmin(user: AuthScope): void {
     if (!isFullAdmin(user)) {
-      throw new AppError('Solo TICs o Rectorado pueden gestionar usuarios.', 403);
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden gestionar usuarios.', 403);
     }
   }
 
@@ -137,7 +143,7 @@ export class AdminService {
 
   async createCarrera(data: CarreraInput, user: AuthScope, ip: string) {
     if (!isFullAdmin(user)) {
-      throw new AppError('Solo TICs o Rectorado pueden crear carreras.', 403);
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden crear carreras.', 403);
     }
 
     const carrera = await prisma.carrera.create({ data });
@@ -147,7 +153,7 @@ export class AdminService {
 
   async updateCarrera(id: string, data: Partial<CarreraInput>, user: AuthScope, ip: string) {
     if (!isFullAdmin(user)) {
-      throw new AppError('Solo TICs o Rectorado pueden actualizar carreras.', 403);
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden actualizar carreras.', 403);
     }
 
     const carrera = await prisma.carrera.update({ where: { id }, data });
@@ -157,7 +163,7 @@ export class AdminService {
 
   async deactivateCarrera(id: string, user: AuthScope, ip: string) {
     if (!isFullAdmin(user)) {
-      throw new AppError('Solo TICs o Rectorado pueden eliminar carreras.', 403);
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden eliminar carreras.', 403);
     }
 
     const carrera = await prisma.carrera.update({
@@ -189,22 +195,75 @@ export class AdminService {
         carrera: { select: { id: true, nombre: true, codigo: true } },
         docente: { select: { id: true, nombre: true, apellido: true, email: true } },
       },
-      orderBy: [{ carrera: { nombre: 'asc' } }, { nombre: 'asc' }],
+      orderBy: [{ carrera: { nombre: 'asc' } }, { ciclo: 'asc' }, { nombre: 'asc' }],
     });
+  }
+
+  async listPeriodosAcademicos() {
+    return prisma.periodoAcademico.findMany({
+      orderBy: [{ activo: 'desc' }, { fecha_inicio: 'desc' }, { nombre: 'asc' }],
+    });
+  }
+
+  async createPeriodoAcademico(data: PeriodoAcademicoInput, user: AuthScope, ip: string) {
+    if (!isFullAdmin(user)) {
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden crear periodos academicos.', 403);
+    }
+
+    const periodo = await prisma.periodoAcademico.create({ data });
+    await this.audit(user.id, 'CREATE_PERIODO_ACADEMICO', 'periodos_academicos', periodo.id, ip, data);
+    return periodo;
+  }
+
+  async updatePeriodoAcademico(id: string, data: Partial<PeriodoAcademicoInput>, user: AuthScope, ip: string) {
+    if (!isFullAdmin(user)) {
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden actualizar periodos academicos.', 403);
+    }
+
+    const periodo = await prisma.periodoAcademico.update({ where: { id }, data });
+
+    if (data.codigo || data.fecha_inicio || data.fecha_fin) {
+      await prisma.horario.updateMany({
+        where: { periodo_academico_id: id },
+        data: {
+          ciclo: data.codigo ?? periodo.codigo,
+          fecha_inicio_ciclo: data.fecha_inicio ?? periodo.fecha_inicio,
+          fecha_fin_ciclo: data.fecha_fin ?? periodo.fecha_fin,
+        },
+      });
+    }
+
+    await this.audit(user.id, 'UPDATE_PERIODO_ACADEMICO', 'periodos_academicos', id, ip, data);
+    return periodo;
+  }
+
+  async deactivatePeriodoAcademico(id: string, user: AuthScope, ip: string) {
+    if (!isFullAdmin(user)) {
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden desactivar periodos academicos.', 403);
+    }
+
+    const periodo = await prisma.periodoAcademico.update({
+      where: { id },
+      data: { activo: false },
+    });
+    await this.audit(user.id, 'DEACTIVATE_PERIODO_ACADEMICO', 'periodos_academicos', id, ip, { activo: false });
+    return periodo;
   }
 
   async createMateria(data: MateriaInput, user: AuthScope, ip: string) {
     await this.assertCanManageCarrera(data.carrera_id, user);
+    await this.assertMateriaCapacity(data.carrera_id, data.ciclo);
     const materia = await prisma.materia.create({ data });
     await this.audit(user.id, 'CREATE_MATERIA', 'materias', materia.id, ip, data);
     return materia;
   }
 
   async updateMateria(id: string, data: Partial<MateriaInput>, user: AuthScope, ip: string) {
-    const current = await prisma.materia.findUnique({ where: { id }, select: { carrera_id: true } });
+    const current = await prisma.materia.findUnique({ where: { id }, select: { carrera_id: true, ciclo: true } });
     if (!current) throw new AppError('Materia no encontrada.', 404);
 
     await this.assertCanManageCarrera(data.carrera_id ?? current.carrera_id, user);
+    await this.assertMateriaCapacity(data.carrera_id ?? current.carrera_id, data.ciclo ?? current.ciclo, id);
 
     const materia = await prisma.materia.update({ where: { id }, data });
     await this.audit(user.id, 'UPDATE_MATERIA', 'materias', id, ip, data);
@@ -263,6 +322,21 @@ export class AdminService {
 
     if (!carrera) {
       throw new AppError('No puede gestionar materias de una carrera no coordinada.', 403);
+    }
+  }
+
+  private async assertMateriaCapacity(carreraId: string, ciclo: number, excludeId?: string): Promise<void> {
+    const total = await prisma.materia.count({
+      where: {
+        id: excludeId ? { not: excludeId } : undefined,
+        carrera_id: carreraId,
+        ciclo,
+        activa: true,
+      },
+    });
+
+    if (total >= 5) {
+      throw new AppError('Ya existen 5 materias activas para esta carrera y ciclo.', 409);
     }
   }
 

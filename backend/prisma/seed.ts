@@ -90,6 +90,7 @@ async function main(): Promise<void> {
     update: {
       carrera_id: carrera.id,
       docente_id: docente.id,
+      ciclo: 1,
       activa: true,
     },
     create: {
@@ -97,6 +98,7 @@ async function main(): Promise<void> {
       codigo: 'DSW-DEV-001',
       carrera_id: carrera.id,
       docente_id: docente.id,
+      ciclo: 1,
       creditos: 3,
       activa: true,
     },
