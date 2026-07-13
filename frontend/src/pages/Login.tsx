@@ -46,7 +46,7 @@ export default function Login() {
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Error al iniciar sesion. Verifique su conexion.';
+        'Error al iniciar sesión. Verifique su conexión.';
       setError(message);
     } finally {
       setIsSubmitting(false);
@@ -62,16 +62,17 @@ export default function Login() {
             <div className="relative z-10 flex w-full max-w-xl flex-col items-center">
               <img
                 src="/brand/istl-logo-white.png"
-                alt="Instituto Superior Tecnologico Loja"
+                alt="Instituto Superior Tecnológico Loja"
                 className="h-36 w-auto object-contain"
               />
               <div className="mt-12">
                 <p className="text-xs font-semibold uppercase text-istl-200">Sistema institucional</p>
-                <h1 className="mt-3 font-brand text-4xl font-bold leading-tight text-white sm:text-5xl">
-                  Asistencia Virtual Docente
+                <h1 className="mt-3 font-brand text-4xl font-bold leading-none text-white sm:text-5xl">
+                  <span className="block">Asistencia Virtual</span>
+                  <span className="mt-2 block">Docente</span>
                 </h1>
                 <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-slate-200 sm:text-base">
-                  Registro academico para clases virtuales, control de horarios, geolocalizacion autorizada y reportes institucionales.
+                  Registro académico para clases virtuales, control de horarios, geolocalización autorizada y reportes institucionales.
                 </p>
               </div>
             </div>
@@ -81,7 +82,7 @@ export default function Login() {
             <div className="mb-8">
               <img
                 src="/brand/istl-logo-horizontal.png"
-                alt="Instituto Superior Tecnologico Loja"
+                alt="Instituto Superior Tecnológico Loja"
                 className="h-14 w-auto object-contain object-left"
               />
               <h2 className="mt-7 font-brand text-2xl font-bold text-brand-navy">Ingreso al sistema</h2>
@@ -115,7 +116,7 @@ export default function Login() {
 
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">
-                  Contrasena
+                  Contraseña
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -141,7 +142,7 @@ export default function Login() {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-brand-navy transition-colors"
-                    aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   >
                     <svg className="w-4.5 h-4.5" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M10 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
@@ -174,7 +175,7 @@ export default function Login() {
                 id="btn-login"
                 className="btn-primary flex w-full items-center justify-center gap-2 py-3.5 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? 'Verificando credenciales...' : 'Iniciar sesion'}
+                {isSubmitting ? 'Verificando credenciales...' : 'Iniciar sesión'}
               </button>
             </form>
 
@@ -203,7 +204,6 @@ export default function Login() {
               <p className="text-slate-500 text-xs">
                 Use su correo <span className="text-brand-navy font-medium">@tecnologicoloja.edu.ec</span>
               </p>
-              <p className="text-slate-400 text-xs mt-1">Dependencia: Ministerio de Educacion del Ecuador</p>
             </div>
           </section>
         </div>

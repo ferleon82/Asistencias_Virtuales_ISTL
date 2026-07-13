@@ -29,13 +29,22 @@ export function TeacherDaySection({
   attendanceLoading,
   sendJustificacion,
 }: TeacherDaySectionProps) {
+  const activeJustificationRecordId =
+    estadoAsistencia?.registroAbierto && estadoAsistencia.horarioActivo
+      ? estadoAsistencia.registroAbierto.id
+      : null;
+  const activeHorarioForJustification =
+    estadoAsistencia?.puedeMarcarEntrada && estadoAsistencia.horarioActivo
+      ? estadoAsistencia.horarioActivo
+      : null;
+
   return (
     <section className="dashboard-section">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="section-title">Mi jornada docente</h2>
           <p className="section-subtitle">
-            Horario del dia, aula virtual e historial reciente de marcaciones.
+            Horario del día, aula virtual e historial reciente de marcaciones.
           </p>
         </div>
         <div className="text-sm text-slate-500 capitalize">{diaSemanaEcuador}</div>
@@ -114,11 +123,36 @@ export function TeacherDaySection({
                   <th className="py-2 pr-4">Entrada</th>
                   <th className="py-2 pr-4">Salida</th>
                   <th className="py-2 pr-4">Estado</th>
-                  <th className="py-2 pr-4">Ubicacion</th>
-                  <th className="py-2 pr-4">Justificacion</th>
+                  <th className="py-2 pr-4">Ubicación</th>
+                  <th className="py-2 pr-4">Justificación</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
+                {activeHorarioForJustification && (
+                  <tr key={`horario-activo-${activeHorarioForJustification.id}`}>
+                    <td className="py-2 pr-4 text-slate-700">{activeHorarioForJustification.materia.codigo}</td>
+                    <td className="py-2 pr-4 text-slate-500">Pendiente</td>
+                    <td className="py-2 pr-4 text-slate-500">-</td>
+                    <td className="py-2 pr-4">
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+                        por marcar
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 text-xs text-slate-400">Sin GPS</td>
+                    <td className="py-2 pr-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setJustificacionRegistroId(`horario:${activeHorarioForJustification.id}`);
+                          setJustificacionText('');
+                        }}
+                        className="rounded-md border border-brand-navy px-2 py-1 text-xs font-medium text-brand-navy hover:bg-istl-50"
+                      >
+                        Solicitar
+                      </button>
+                    </td>
+                  </tr>
+                )}
                 {docenteHistorial.map((registro) => (
                   <tr key={registro.id}>
                     <td className="py-2 pr-4 text-slate-700">{registro.horario.materia.codigo}</td>
@@ -136,7 +170,9 @@ export function TeacherDaySection({
                             hour: '2-digit',
                             minute: '2-digit',
                           })
-                        : 'Abierta'}
+                        : registro.timestamp_entrada
+                          ? 'Abierta'
+                          : '-'}
                     </td>
                     <td className="py-2 pr-4">
                       <span className="rounded-full bg-istl-50 px-2 py-0.5 text-xs text-brand-navy">
@@ -151,7 +187,7 @@ export function TeacherDaySection({
                         <span className="text-xs text-slate-500">
                           {registro.estado === 'justificado' ? 'Aprobada' : 'Enviada'}
                         </span>
-                      ) : (
+                      ) : activeJustificationRecordId === registro.id && !registro.timestamp_salida ? (
                         <button
                           type="button"
                           onClick={() => {
@@ -162,11 +198,19 @@ export function TeacherDaySection({
                         >
                           Solicitar
                         </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          className="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-50"
+                        >
+                          Solicitar
+                        </button>
                       )}
                     </td>
                   </tr>
                 ))}
-                {docenteHistorial.length === 0 && (
+                {docenteHistorial.length === 0 && !activeHorarioForJustification && (
                   <tr>
                     <td className="py-4 text-slate-500" colSpan={6}>Sin marcaciones recientes.</td>
                   </tr>
@@ -177,7 +221,7 @@ export function TeacherDaySection({
           {justificacionRegistroId && (
             <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
               <label className="text-sm text-slate-600">
-                Motivo de justificacion
+                Motivo de justificación
                 <textarea
                   value={justificacionText}
                   onChange={(event) => setJustificacionText(event.target.value)}
@@ -192,7 +236,7 @@ export function TeacherDaySection({
                   disabled={attendanceLoading || justificacionText.trim().length < 10}
                   className="btn-primary"
                 >
-                  Enviar justificacion
+                  Enviar justificación
                 </button>
                 <button
                   type="button"

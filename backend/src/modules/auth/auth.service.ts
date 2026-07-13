@@ -149,7 +149,7 @@ export class AuthService {
     }
 
     if (!user.activo) {
-      throw new AppError('Su cuenta esta desactivada. Contacte al area de TICs.', 403);
+      throw new AppError('Su cuenta está desactivada. Contacte al área de TICs.', 403);
     }
 
     const payload = { sub: user.id, email: user.email, rol: user.rol };

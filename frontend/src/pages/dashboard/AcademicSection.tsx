@@ -91,13 +91,13 @@ export function AcademicSection({
     <section className="dashboard-section">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="section-title">Gestion academica</h2>
+          <h2 className="section-title">Gestión académica</h2>
           <p className="section-subtitle">
-            Administre carreras, materias y responsables academicos.
+            Administre carreras, materias y responsables académicos.
           </p>
         </div>
         <div className="text-sm text-slate-500">
-          {periodosAcademicos.length} periodos - {carreras.length} carreras - {materias.length} materias
+          {periodosAcademicos.length} períodos - {carreras.length} carreras - {materias.length} materias
         </div>
       </div>
 
@@ -115,7 +115,7 @@ export function AcademicSection({
       <div className="mt-5 space-y-6">
         {canManageUsers && (
           <div className="rounded-md border border-slate-200 p-4">
-            <h3 className="font-brand text-lg font-bold text-brand-navy">Periodos academicos</h3>
+            <h3 className="font-brand text-lg font-bold text-brand-navy">Períodos académicos</h3>
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
               <label className="text-sm text-slate-600">
                 Nombre
@@ -126,7 +126,7 @@ export function AcademicSection({
                 />
               </label>
               <label className="text-sm text-slate-600">
-                Codigo
+                Código
                 <input
                   value={periodoForm.codigo}
                   onChange={(event) => setPeriodoForm((current) => ({ ...current, codigo: event.target.value }))}
@@ -170,7 +170,7 @@ export function AcademicSection({
               </button>
               {editingPeriodoId && (
                 <button type="button" onClick={cancelPeriodoEdit} className="btn-secondary self-end">
-                  Cancelar edicion
+                  Cancelar edición
                 </button>
               )}
             </div>
@@ -223,7 +223,7 @@ export function AcademicSection({
                 />
               </label>
               <label className="text-sm text-slate-600">
-                Codigo
+                Código
                 <input
                   value={carreraForm.codigo}
                   onChange={(event) => setCarreraForm((current) => ({ ...current, codigo: event.target.value }))}
@@ -270,7 +270,7 @@ export function AcademicSection({
                   onClick={cancelCarreraEdit}
                   className="btn-secondary self-end"
                 >
-                  Cancelar edicion
+                  Cancelar edición
                 </button>
               )}
             </div>
@@ -327,7 +327,7 @@ export function AcademicSection({
               />
             </label>
             <label className="text-sm text-slate-600">
-              Codigo
+              Código
               <input
                 value={materiaForm.codigo}
                 onChange={(event) => setMateriaForm((current) => ({ ...current, codigo: event.target.value }))}
@@ -380,7 +380,7 @@ export function AcademicSection({
               </select>
             </label>
             <label className="text-sm text-slate-600">
-              Creditos
+              Créditos
               <input
                 type="number"
                 min={1}
@@ -415,7 +415,7 @@ export function AcademicSection({
                 onClick={cancelMateriaEdit}
                 className="btn-secondary self-end"
               >
-                Cancelar edicion
+                Cancelar edición
               </button>
             )}
           </div>

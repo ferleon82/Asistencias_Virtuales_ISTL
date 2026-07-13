@@ -58,7 +58,7 @@ export function UsersSection({
     <section className="dashboard-section">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="section-title">Gestion de usuarios</h2>
+          <h2 className="section-title">Gestión de usuarios</h2>
           <p className="section-subtitle">
             Cree cuentas institucionales para docentes, coordinacion, TICs, rectorado o talento humano.
           </p>
@@ -105,7 +105,7 @@ export function UsersSection({
           />
         </label>
         <label className="text-sm text-slate-600">
-          Cedula
+          Cédula
           <input
             value={usuarioForm.cedula}
             onChange={(event) => setUsuarioForm((current) => ({ ...current, cedula: event.target.value }))}
@@ -125,7 +125,7 @@ export function UsersSection({
           </select>
         </label>
         <label className="text-sm text-slate-600">
-          Telefono
+          Teléfono
           <input
             value={usuarioForm.telefono}
             onChange={(event) => setUsuarioForm((current) => ({ ...current, telefono: event.target.value }))}
@@ -133,7 +133,7 @@ export function UsersSection({
           />
         </label>
         <label className="text-sm text-slate-600">
-          {editingUsuarioId ? 'Nueva contrasena' : 'Contrasena inicial'}
+          {editingUsuarioId ? 'Nueva contraseña' : 'Contraseña inicial'}
           <input
             type="password"
             value={usuarioForm.password}
@@ -165,7 +165,7 @@ export function UsersSection({
             onClick={resetUsuarioForm}
             className="btn-secondary self-end"
           >
-            Cancelar edicion
+            Cancelar edición
           </button>
         )}
       </div>
@@ -195,7 +195,7 @@ export function UsersSection({
             onClick={() => setUsersPage((current) => Math.max(1, current - 1))}
             disabled={safeUsersPage === 1 || totalVisibleUsers === 0}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-sm font-semibold text-brand-navy disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label="Pagina anterior de usuarios"
+            aria-label="Página anterior de usuarios"
           >
             &lt;
           </button>
@@ -207,7 +207,7 @@ export function UsersSection({
             onClick={() => setUsersPage((current) => Math.min(totalUsersPages, current + 1))}
             disabled={safeUsersPage === totalUsersPages || totalVisibleUsers === 0}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-sm font-semibold text-brand-navy disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label="Pagina siguiente de usuarios"
+            aria-label="Página siguiente de usuarios"
           >
             &gt;
           </button>
@@ -220,8 +220,8 @@ export function UsersSection({
             <tr className="text-left text-xs uppercase text-slate-500">
               <th className="py-2 pr-4">Usuario</th>
               <th className="py-2 pr-4">Rol</th>
-              <th className="py-2 pr-4">Cedula</th>
-              <th className="py-2 pr-4">Ultimo acceso</th>
+              <th className="py-2 pr-4">Cédula</th>
+              <th className="py-2 pr-4">Último acceso</th>
               <th className="py-2 pr-4">Estado</th>
               <th className="py-2 pr-4">Acciones</th>
             </tr>

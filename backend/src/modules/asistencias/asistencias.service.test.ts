@@ -13,10 +13,22 @@ vi.mock('../../config/database', () => ({
       create: vi.fn(),
       update: vi.fn(),
     },
+    systemSetting: {
+      findUnique: vi.fn(),
+    },
     auditLog: {
       create: vi.fn(),
     },
   },
+}));
+
+vi.mock('node:fs/promises', () => ({
+  default: {
+    mkdir: vi.fn(),
+    writeFile: vi.fn(),
+  },
+  mkdir: vi.fn(),
+  writeFile: vi.fn(),
 }));
 
 vi.mock('../../shared/utils/timezone', () => ({
@@ -32,6 +44,8 @@ const user = {
   id: 'docente-1',
   rol: 'docente',
 };
+
+const cameraPhoto = `data:image/jpeg;base64,${Buffer.from('foto-prueba').toString('base64')}`;
 
 const activeHorario = {
   id: 'horario-1',
@@ -114,6 +128,7 @@ const earlyExitRegistro = {
 describe('AsistenciasService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.systemSetting.findUnique).mockResolvedValue({ value: 'true' } as never);
   });
 
   it('bloquea una segunda entrada para el mismo horario en el mismo dia', async () => {
@@ -128,6 +143,27 @@ describe('AsistenciasService', () => {
     } satisfies Partial<AppError>);
 
     expect(prisma.registroAsistencia.create).not.toHaveBeenCalled();
+  });
+
+  it('permite marcar entrada sin foto cuando el registro con imagen esta desactivado', async () => {
+    const registroSinFoto = {
+      ...existingRegistro,
+      foto_entrada_url: null,
+    };
+    vi.mocked(prisma.systemSetting.findUnique).mockResolvedValue({ value: 'false' } as never);
+    vi.mocked(prisma.registroAsistencia.findFirst)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    vi.mocked(prisma.horario.findMany).mockResolvedValue([activeHorario] as never);
+    vi.mocked(prisma.registroAsistencia.create).mockResolvedValue(registroSinFoto as never);
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+
+    await expect(service.marcarEntrada(user, {}, '127.0.0.1')).resolves.toEqual(registroSinFoto);
+    expect(prisma.registroAsistencia.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ foto_entrada_url: null }),
+      })
+    );
   });
 
   it('deshabilita marcar entrada si el horario activo ya tiene asistencia cerrada', async () => {
@@ -192,6 +228,43 @@ describe('AsistenciasService', () => {
     vi.mocked(prisma.registroAsistencia.update).mockResolvedValue(updatedRegistro as never);
     vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
 
-    await expect(service.marcarSalida(user, {}, '127.0.0.1')).resolves.toEqual(updatedRegistro);
+    await expect(service.marcarSalida(user, { foto_base64: cameraPhoto }, '127.0.0.1')).resolves.toEqual(updatedRegistro);
+  });
+
+  it('rechaza solicitar justificación cuando la marcación ya tiene salida', async () => {
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(existingRegistro as never);
+
+    await expect(
+      service.solicitarJustificacion(
+        existingRegistro.id,
+        { justificacion: 'No pude registrar correctamente por problemas de conexión.' },
+        user,
+        '127.0.0.1'
+      )
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'La justificación solo puede solicitarse mientras la marcación permanece abierta.',
+    } satisfies Partial<AppError>);
+
+    expect(prisma.registroAsistencia.update).not.toHaveBeenCalled();
+  });
+
+  it('permite solicitar justificación con marcación abierta dentro de la holgura', async () => {
+    const justifiedRegistro = {
+      ...openRegistro,
+      justificacion: 'No pude registrar correctamente por problemas de conexión.',
+    };
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(openRegistro as never);
+    vi.mocked(prisma.registroAsistencia.update).mockResolvedValue(justifiedRegistro as never);
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+
+    await expect(
+      service.solicitarJustificacion(
+        openRegistro.id,
+        { justificacion: 'No pude registrar correctamente por problemas de conexión.' },
+        user,
+        '127.0.0.1'
+      )
+    ).resolves.toEqual(justifiedRegistro);
   });
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { reporteQuerySchema } from './reportes.schemas';
 
 describe('reportes schemas', () => {
-  it('acepta filtros completos validos', () => {
+  it('acepta filtros completos válidos', () => {
     const result = reporteQuerySchema.safeParse({
       carrera_id: '11111111-1111-4111-8111-111111111111',
       materia_id: '22222222-2222-4222-8222-222222222222',

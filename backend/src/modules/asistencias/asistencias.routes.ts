@@ -11,6 +11,7 @@ import {
   marcarSalida,
   rechazarJustificacion,
   solicitarJustificacion,
+  solicitarJustificacionHorario,
 } from './asistencias.controller';
 
 const router: ExpressRouter = Router();
@@ -21,6 +22,7 @@ router.get('/', roleGuard(Rol.docente, Rol.coordinador, Rol.tics, Rol.rectorado,
 router.get('/estado-actual', roleGuard(Rol.docente), getEstadoActual);
 router.post('/entrada', roleGuard(Rol.docente), asistenciaRateLimiter, marcarEntrada);
 router.post('/salida', roleGuard(Rol.docente), asistenciaRateLimiter, marcarSalida);
+router.post('/horario/:horarioId/justificacion', roleGuard(Rol.docente), solicitarJustificacionHorario);
 router.post('/:id/justificacion', roleGuard(Rol.docente), solicitarJustificacion);
 router.post('/:id/justificacion/aprobar', roleGuard(Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano), aprobarJustificacion);
 router.post('/:id/justificacion/rechazar', roleGuard(Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano), rechazarJustificacion);

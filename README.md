@@ -1,29 +1,29 @@
 # ISTL - Sistema de Asistencia Virtual Docente
 
-Sistema web para el registro, control y reporte de asistencia docente en modalidad presencial, virtual o hibrida del **Instituto Superior Tecnologico Loja (ISTL)**.
+Sistema web para el registro, control y reporte de asistencia docente en modalidad presencial, virtual o híbrida del **Instituto Superior Tecnológico Loja (ISTL)**.
 
-El proyecto se encuentra en estado **MVP funcional**: permite autenticacion institucional, administracion academica basica, gestion de horarios, marcacion de entrada/salida, control de duplicados, geolocalizacion opcional y reportes.
+El proyecto se encuentra en estado **MVP funcional**: permite autenticación institucional, administracion academica basica, gestion de horarios, marcación de entrada/salida, control de duplicados, geolocalización opcional y reportes.
 
 ---
 
 ## Estado Actual
 
 - Login institucional con Google OAuth para cuentas `@tecnologicoloja.edu.ec`.
-- Login por correo/contrasena disponible como contingencia administrativa.
+- Login por correo/contraseña disponible como contingencia administrativa.
 - Roles principales: TICs, Rectorado, Coordinador y Docente.
-- Administracion de usuarios, carreras, materias, docentes y horarios.
-- Marcacion docente de entrada y salida con reglas de horario.
-- Bloqueo de marcaciones duplicadas por clase y dia.
+- Administración de usuarios, carreras, materias, docentes y horarios.
+- Marcación docente de entrada y salida con reglas de horario.
+- Bloqueo de marcaciones duplicadas por clase y día.
 - Salida habilitada solo desde 10 minutos antes de la hora de fin configurada.
-- Registro de geolocalizacion cuando el navegador entrega permiso.
-- Visualizacion de ubicacion GPS mediante enlace a Google Maps.
+- Registro de geolocalización cuando el navegador entrega permiso.
+- Visualizacion de ubicación GPS mediante enlace a Google Maps.
 - Reportes con filtros y exportacion PDF/Excel.
 - API documentada en Swagger/OpenAPI.
 - Docker Compose para levantar frontend, backend, PostgreSQL y Redis.
 
 ---
 
-## Stack Tecnologico
+## Stack Tecnológico
 
 | Capa | Tecnologia |
 |---|---|
@@ -41,7 +41,7 @@ El proyecto se encuentra en estado **MVP funcional**: permite autenticacion inst
 - Docker Desktop 4.x o superior.
 - Node.js 20.x o superior y pnpm 9.x, solo para desarrollo local sin Docker.
 - Git.
-- Credenciales OAuth de Google Cloud para el inicio de sesion institucional.
+- Credenciales OAuth de Google Cloud para el inicio de sesión institucional.
 
 ---
 
@@ -138,7 +138,7 @@ pnpm run dev
 
 ---
 
-## Comandos de Verificacion
+## Comandos de Verificación
 
 ### Backend
 
@@ -169,7 +169,7 @@ docker compose logs -f frontend
 
 Despues de ejecutar el seed:
 
-| Rol | Email | Contrasena |
+| Rol | Email | Contraseña |
 |---|---|---|
 | TICs | `admin@tecnologicoloja.edu.ec` | `Password123` |
 | Docente | `docente@tecnologicoloja.edu.ec` | `Password123` |
@@ -178,13 +178,13 @@ El seed crea datos de desarrollo para validar el flujo inicial. Para pruebas rea
 
 ---
 
-## Reglas de Marcacion
+## Reglas de Marcación
 
 - El docente solo puede marcar dentro de una clase activa del dia.
 - Una vez registrada entrada y salida para una clase, no se puede volver a marcar la misma clase.
 - La salida queda bloqueada despues de marcar entrada y se habilita desde 10 minutos antes de la hora de fin del horario.
-- Si la clase ya finalizo, no se habilita como clase activa para nuevas marcaciones.
-- La geolocalizacion depende del permiso del navegador y del dispositivo.
+- Si la clase ya finalizó, no se habilita como clase activa para nuevas marcaciones.
+- La geolocalización depende del permiso del navegador y del dispositivo.
 - Si existe GPS, el sistema guarda latitud, longitud y precision aproximada en metros.
 
 ---
@@ -198,11 +198,11 @@ Los reportes incluyen:
 - Resumen estadistico.
 - Vista previa de marcaciones.
 - Coordenadas GPS cuando estan disponibles.
-- Enlace a Google Maps para revisar la ubicacion registrada.
+- Enlace a Google Maps para revisar la ubicación registrada.
 - Exportacion PDF con encabezado institucional, resumen y detalle paginado.
 - Exportacion Excel.
 
-La especificacion OpenAPI documenta los endpoints principales, OAuth institucional, GPS, estados de marcacion y exportaciones.
+La especificacion OpenAPI documenta los endpoints principales, OAuth institucional, GPS, estados de marcación y exportaciones.
 
 ---
 
@@ -210,17 +210,17 @@ La especificacion OpenAPI documenta los endpoints principales, OAuth institucion
 
 | Metodo | Ruta | Descripcion | Auth |
 |---|---|---|---|
-| `POST` | `/api/v1/auth/login` | Iniciar sesion con correo/contrasena | Publico |
-| `GET` | `/api/v1/auth/google` | Iniciar sesion con Google institucional | Publico |
+| `POST` | `/api/v1/auth/login` | Iniciar sesión con correo/contraseña | Publico |
+| `GET` | `/api/v1/auth/google` | Iniciar sesión con Google institucional | Publico |
 | `GET` | `/api/v1/auth/google/callback` | Callback OAuth de Google | Publico |
 | `POST` | `/api/v1/auth/refresh` | Renovar token | Publico |
-| `POST` | `/api/v1/auth/logout` | Cerrar sesion | JWT |
+| `POST` | `/api/v1/auth/logout` | Cerrar sesión | JWT |
 | `GET` | `/api/v1/auth/me` | Perfil del usuario autenticado | JWT |
-| `GET` | `/api/v1/horarios` | Listar horarios segun rol y filtros | JWT |
+| `GET` | `/api/v1/horarios` | Listar horarios según rol y filtros | JWT |
 | `POST` | `/api/v1/horarios` | Crear horario | Coordinador/TICs/Rectorado |
 | `PUT` | `/api/v1/horarios/:id` | Actualizar horario | Coordinador/TICs/Rectorado |
 | `DELETE` | `/api/v1/horarios/:id` | Desactivar horario | Coordinador/TICs/Rectorado |
-| `GET` | `/api/v1/asistencias` | Listar asistencias segun rol | JWT |
+| `GET` | `/api/v1/asistencias` | Listar asistencias según rol | JWT |
 | `GET` | `/api/v1/asistencias/estado-actual` | Clase activa y registro abierto | Docente |
 | `POST` | `/api/v1/asistencias/entrada` | Marcar ingreso | Docente |
 | `POST` | `/api/v1/asistencias/salida` | Marcar salida | Docente |
@@ -249,7 +249,7 @@ La especificacion OpenAPI documenta los endpoints principales, OAuth institucion
 - Rate limiting estricto de login: 5 intentos fallidos por IP cada 15 minutos.
 - Tokens JWT de acceso y refresh.
 - Refresh token con rotacion.
-- Contrasenas hasheadas con bcrypt.
+- Contraseñas hasheadas con bcrypt.
 - CORS configurable para produccion.
 - Control de acceso por roles.
 - Registro de auditoria para eventos relevantes.
@@ -286,8 +286,8 @@ Antes de pasar a un piloto institucional:
 3. Asignar docentes y coordinadores.
 4. Crear horarios del ciclo vigente.
 5. Probar login institucional con Google.
-6. Probar marcacion desde computador y celular.
-7. Validar permiso de ubicacion GPS en navegadores usados por docentes.
+6. Probar marcación desde computador y celular.
+7. Validar permiso de ubicación GPS en navegadores usados por docentes.
 8. Confirmar que la salida se habilite solo en la ventana permitida.
 9. Generar reportes por carrera, materia, docente, estado y ciclo.
 10. Descargar PDF/Excel y comparar contra la vista previa.
@@ -297,7 +297,7 @@ Antes de pasar a un piloto institucional:
 ## Pendientes Tecnicos Recomendados
 
 1. Dividir `Dashboard.tsx` en componentes mas pequenos para facilitar mantenimiento.
-2. Definir texto de privacidad/consentimiento para el uso de geolocalizacion.
+2. Definir texto de privacidad/consentimiento para el uso de geolocalización.
 3. Revisar despliegue productivo: HTTPS, dominio real, secretos, backups y URI OAuth definitivo.
 
 ---
@@ -308,4 +308,4 @@ Contactar al Area de TICs del ISTL: `tics@tecnologicoloja.edu.ec`
 
 ---
 
-Desarrollado para el Instituto Superior Tecnologico Loja.
+Desarrollado para el Instituto Superior Tecnológico Loja.

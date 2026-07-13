@@ -4,16 +4,21 @@ import { useNavigate } from 'react-router-dom';
 import api from '../lib/axios';
 import { AcademicSection } from './dashboard/AcademicSection';
 import { AnalyticsDashboard } from './dashboard/AnalyticsDashboard';
+import { CameraCaptureModal } from './dashboard/CameraCaptureModal';
 import { DashboardFooter } from './dashboard/DashboardFooter';
 import { KpiCard } from './dashboard/KpiCard';
+import { ModulePermissionsSection } from './dashboard/ModulePermissionsSection';
 import { ReportsSection } from './dashboard/ReportsSection';
 import { SchedulesSection } from './dashboard/SchedulesSection';
+import { SystemSettingsSection } from './dashboard/SystemSettingsSection';
 import { SystemStatusCard } from './dashboard/SystemStatusCard';
 import { TeacherDaySection } from './dashboard/TeacherDaySection';
 import { UsersSection } from './dashboard/UsersSection';
 import { rolColors, rolLabels } from './dashboard/constants';
 import { useAdminData } from './dashboard/hooks/useAdminData';
+import { useModulePermissions } from './dashboard/hooks/useModulePermissions';
 import { useReports } from './dashboard/hooks/useReports';
+import { useSystemSettings } from './dashboard/hooks/useSystemSettings';
 import { useTeacherAttendance } from './dashboard/hooks/useTeacherAttendance';
 import { useUsers } from './dashboard/hooks/useUsers';
 import type {
@@ -31,10 +36,34 @@ export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const hasRectoradoPrivileges = user?.rol === 'rectorado' || user?.rol === 'talento_humano';
-  const canManageSchedules = user?.rol === 'coordinador' || user?.rol === 'tics' || hasRectoradoPrivileges;
-  const canManageUsers = user?.rol === 'tics' || hasRectoradoPrivileges;
-  const isTicsRole = user?.rol === 'tics';
-  const canViewInstitutionalAnalytics = user?.rol === 'tics' || hasRectoradoPrivileges;
+  const isFullAdminRole = user?.rol === 'tics' || hasRectoradoPrivileges;
+  const {
+    groupedPermissions,
+    modulePermissionsLoading,
+    modulePermissionsMessage,
+    modulePermissionsError,
+    hasModule,
+    togglePermission,
+    savePermissions,
+  } = useModulePermissions(user?.rol);
+  const {
+    systemSettings,
+    systemSettingsLoading,
+    systemSettingsMessage,
+    systemSettingsError,
+    setSystemSettings,
+    updateSystemSettings,
+  } = useSystemSettings(user?.rol);
+  const canViewTeacherAttendance = user?.rol === 'docente' && hasModule('teacher_attendance');
+  const canViewTeacherDay = user?.rol === 'docente' && hasModule('teacher_day');
+  const canViewInstitutionalAnalytics = hasModule('analytics');
+  const canManageUsers = hasModule('users');
+  const canManageAcademic = hasModule('academic');
+  const canManageSchedules = hasModule('schedules');
+  const canViewReports = hasModule('reports');
+  const canViewSystemStatus = hasModule('system_status');
+  const canConfigureModules = user?.rol === 'tics' && hasModule('module_permissions');
+  const canLoadReferenceData = canViewInstitutionalAnalytics || canManageAcademic || canManageSchedules || canViewReports;
   const [adminMessage, setAdminMessage] = useState('');
   const [adminError, setAdminError] = useState('');
   const [adminLoading, setAdminLoading] = useState(false);
@@ -79,8 +108,9 @@ export default function Dashboard() {
     activo: true,
   }));
   const [editingPeriodoId, setEditingPeriodoId] = useState<string | null>(null);
+  const [cameraAction, setCameraAction] = useState<'entrada' | 'salida' | null>(null);
   const { carreras, materias, docentes, periodosAcademicos, horarios, loadAdminData } = useAdminData({
-    canManageSchedules,
+    canManageSchedules: canLoadReferenceData,
     setAdminError,
     setHorarioForm,
     setMateriaForm,
@@ -315,7 +345,7 @@ export default function Dashboard() {
   };
 
   const deleteCarrera = async (id: string) => {
-    if (!window.confirm('Confirme que desea eliminar esta carrera. Tambien se desactivaran sus materias y horarios.')) return;
+    if (!window.confirm('Confirme que desea eliminar esta carrera. También se desactivarán sus materias y horarios.')) return;
 
     setAcademicLoading(true);
     setAcademicError('');
@@ -350,7 +380,7 @@ export default function Dashboard() {
         ? await api.put(`/admin/periodos-academicos/${editingPeriodoId}`, payload)
         : await api.post('/admin/periodos-academicos', payload);
       setAcademicMessage(
-        data.message ?? (editingPeriodoId ? 'Periodo academico actualizado correctamente.' : 'Periodo academico creado correctamente.')
+        data.message ?? (editingPeriodoId ? 'Período académico actualizado correctamente.' : 'Período académico creado correctamente.')
       );
       setPeriodoForm({
         nombre: '',
@@ -365,7 +395,7 @@ export default function Dashboard() {
     } catch (error) {
       const message =
         (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'No se pudo guardar el periodo academico.';
+        'No se pudo guardar el período académico.';
       setAcademicError(message);
     } finally {
       setAcademicLoading(false);
@@ -397,7 +427,7 @@ export default function Dashboard() {
   };
 
   const deletePeriodoAcademico = async (id: string) => {
-    if (!window.confirm('Confirme que desea desactivar este periodo academico.')) return;
+    if (!window.confirm('Confirme que desea desactivar este período académico.')) return;
 
     setAcademicLoading(true);
     setAcademicError('');
@@ -405,14 +435,14 @@ export default function Dashboard() {
 
     try {
       const { data } = await api.delete(`/admin/periodos-academicos/${id}`);
-      setAcademicMessage(data.message ?? 'Periodo academico desactivado correctamente.');
+      setAcademicMessage(data.message ?? 'Período académico desactivado correctamente.');
       if (editingPeriodoId === id) cancelPeriodoEdit();
       await loadAdminData();
       await loadReportSummary();
     } catch (error) {
       const message =
         (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'No se pudo desactivar el periodo academico.';
+        'No se pudo desactivar el período académico.';
       setAcademicError(message);
     } finally {
       setAcademicLoading(false);
@@ -484,7 +514,7 @@ export default function Dashboard() {
   };
 
   const deleteMateria = async (id: string) => {
-    if (!window.confirm('Confirme que desea eliminar esta materia. Tambien se desactivaran sus horarios.')) return;
+    if (!window.confirm('Confirme que desea eliminar esta materia. También se desactivarán sus horarios.')) return;
 
     setAcademicLoading(true);
     setAcademicError('');
@@ -503,6 +533,22 @@ export default function Dashboard() {
     } finally {
       setAcademicLoading(false);
     }
+  };
+
+  const confirmCameraAttendance = async (photoBase64: string) => {
+    if (!cameraAction) return;
+
+    await markAttendance(cameraAction, photoBase64);
+    setCameraAction(null);
+  };
+
+  const handleAttendanceAction = async (action: 'entrada' | 'salida') => {
+    if (estadoAsistencia?.attendancePhotoRequired ?? systemSettings.attendance_photo_required) {
+      setCameraAction(action);
+      return;
+    }
+
+    await markAttendance(action);
   };
 
   return (
@@ -560,7 +606,7 @@ export default function Dashboard() {
                 Hola, {user?.nombre}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-200">
-                Gestiona asistencia, horarios y reportes desde una vista ordenada segun tu rol.
+                Gestiona asistencia, horarios y reportes desde una vista ordenada según tu rol.
               </p>
             </div>
             <div className="rounded-md border border-white/15 bg-white/10 px-4 py-3 text-sm">
@@ -621,7 +667,7 @@ export default function Dashboard() {
         {/* Panel de acciones rápidas */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Marcar asistencia */}
-          {user?.rol === 'docente' && (
+          {canViewTeacherAttendance && (
             <div className="rounded-lg bg-brand-navy p-6 text-white shadow-lg lg:col-span-3 xl:col-span-1">
               <h2 className="font-brand text-xl font-bold mb-1">Marcar asistencia</h2>
               <p className="text-slate-200 text-sm mb-5">
@@ -665,7 +711,7 @@ export default function Dashboard() {
               <div className="space-y-3">
                 <button
                   id="btn-marcar-entrada"
-                  onClick={() => void markAttendance('entrada')}
+                  onClick={() => void handleAttendanceAction('entrada')}
                   disabled={attendanceLoading || !estadoAsistencia?.puedeMarcarEntrada}
                   className="w-full py-3 px-4 rounded-md bg-white text-brand-navy font-semibold text-sm hover:bg-istl-50 disabled:bg-white/40 disabled:cursor-not-allowed transition-colors shadow flex items-center justify-center gap-2"
                 >
@@ -676,7 +722,7 @@ export default function Dashboard() {
                 </button>
                 <button
                   id="btn-marcar-salida"
-                  onClick={() => void markAttendance('salida')}
+                  onClick={() => void handleAttendanceAction('salida')}
                   disabled={attendanceLoading || !estadoAsistencia?.puedeMarcarSalida}
                   title={estadoAsistencia?.salidaBloqueadaMotivo ?? undefined}
                   className="w-full py-3 px-4 rounded-md bg-white/20 text-white font-semibold text-sm hover:bg-white/30 disabled:bg-white/10 disabled:text-white/50 disabled:cursor-not-allowed transition-colors border border-white/30 flex items-center justify-center gap-2"
@@ -690,12 +736,12 @@ export default function Dashboard() {
             </div>
           )}
 
-          {isTicsRole && (
+          {canViewSystemStatus && (
             <SystemStatusCard className="lg:col-span-3" />
           )}
         </div>
 
-        {user?.rol === 'docente' && (
+        {canViewTeacherDay && (
           <TeacherDaySection
             estadoAsistencia={estadoAsistencia}
             diaSemanaEcuador={diaSemanaEcuador}
@@ -762,9 +808,30 @@ export default function Dashboard() {
           />
         )}
 
-        {canManageSchedules && (
+        {canConfigureModules && (
+          <>
+            <SystemSettingsSection
+              settings={systemSettings}
+              loading={systemSettingsLoading}
+              message={systemSettingsMessage}
+              error={systemSettingsError}
+              setSettings={setSystemSettings}
+              saveSettings={updateSystemSettings}
+            />
+            <ModulePermissionsSection
+              groupedPermissions={groupedPermissions}
+              loading={modulePermissionsLoading}
+              message={modulePermissionsMessage}
+              error={modulePermissionsError}
+              togglePermission={togglePermission}
+              savePermissions={savePermissions}
+            />
+          </>
+        )}
+
+        {canManageAcademic && (
           <AcademicSection
-            canManageUsers={canManageUsers}
+            canManageUsers={isFullAdminRole}
             carreras={carreras}
             materias={materias}
             docentes={docentes}
@@ -816,35 +883,46 @@ export default function Dashboard() {
           />
         )}
 
-        <ReportsSection
-          reportFrom={reportFrom}
-          setReportFrom={setReportFrom}
-          reportTo={reportTo}
-          setReportTo={setReportTo}
-          reportCarreraId={reportCarreraId}
-          setReportCarreraId={setReportCarreraId}
-          reportMateriaId={reportMateriaId}
-          setReportMateriaId={setReportMateriaId}
-          reportDocenteId={reportDocenteId}
-          setReportDocenteId={setReportDocenteId}
-          reportEstado={reportEstado}
-          setReportEstado={setReportEstado}
-          reportCiclo={reportCiclo}
-          setReportCiclo={setReportCiclo}
-          reportPeriodoAcademicoId={reportPeriodoAcademicoId}
-          setReportPeriodoAcademicoId={setReportPeriodoAcademicoId}
-          carreras={carreras}
-          periodosAcademicos={periodosAcademicos}
-          reportMaterias={reportMaterias}
-          docentes={docentes}
-          reportCiclos={reportCiclos}
-          reportSummary={reportSummary}
-          reportError={reportError}
-          reportLoading={reportLoading}
-          canManageSchedules={canManageSchedules}
-          downloadReport={downloadReport}
-          reviewJustificacion={reviewJustificacion}
-        />
+        {canViewReports && (
+          <ReportsSection
+            reportFrom={reportFrom}
+            setReportFrom={setReportFrom}
+            reportTo={reportTo}
+            setReportTo={setReportTo}
+            reportCarreraId={reportCarreraId}
+            setReportCarreraId={setReportCarreraId}
+            reportMateriaId={reportMateriaId}
+            setReportMateriaId={setReportMateriaId}
+            reportDocenteId={reportDocenteId}
+            setReportDocenteId={setReportDocenteId}
+            reportEstado={reportEstado}
+            setReportEstado={setReportEstado}
+            reportCiclo={reportCiclo}
+            setReportCiclo={setReportCiclo}
+            reportPeriodoAcademicoId={reportPeriodoAcademicoId}
+            setReportPeriodoAcademicoId={setReportPeriodoAcademicoId}
+            carreras={carreras}
+            periodosAcademicos={periodosAcademicos}
+            reportMaterias={reportMaterias}
+            docentes={docentes}
+            reportCiclos={reportCiclos}
+            reportSummary={reportSummary}
+            reportError={reportError}
+            reportLoading={reportLoading}
+            canManageSchedules={canManageSchedules || canManageAcademic}
+            downloadReport={downloadReport}
+            reviewJustificacion={reviewJustificacion}
+          />
+        )}
+
+        {cameraAction && (
+          <CameraCaptureModal
+            action={cameraAction}
+            loading={attendanceLoading}
+            onCancel={() => setCameraAction(null)}
+            onConfirm={(photoBase64) => void confirmCameraAttendance(photoBase64)}
+          />
+        )}
 
         <DashboardFooter />
       </main>

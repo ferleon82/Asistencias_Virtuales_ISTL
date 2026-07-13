@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { carreraSchema, createUsuarioSchema, materiaSchema, updateUsuarioSchema } from './admin.schemas';
 
 describe('admin schemas', () => {
-  it('normaliza codigos de carrera a mayusculas', () => {
+  it('normaliza códigos de carrera a mayúsculas', () => {
     const result = carreraSchema.safeParse({
       nombre: 'Tecnologia Superior en Desarrollo de Software',
       codigo: 'ds',
@@ -13,7 +13,7 @@ describe('admin schemas', () => {
     if (result.success) expect(result.data.codigo).toBe('DS');
   });
 
-  it('permite carrera sin coordinador en actualizacion', () => {
+  it('permite carrera sin coordinador en actualización', () => {
     const result = carreraSchema.partial().safeParse({
       coordinador_id: null,
     });
@@ -66,7 +66,7 @@ describe('admin schemas', () => {
     expect(result.success).toBe(false);
   });
 
-  it('requiere contrasena fuerte al crear usuario', () => {
+  it('requiere contraseña fuerte al crear usuario', () => {
     const result = createUsuarioSchema.safeParse({
       email: 'docente@tecnologicoloja.edu.ec',
       nombre: 'Docente',
@@ -80,7 +80,7 @@ describe('admin schemas', () => {
     expect(result.success).toBe(false);
   });
 
-  it('permite actualizacion parcial de usuario sin contrasena', () => {
+  it('permite actualización parcial de usuario sin contraseña', () => {
     const result = updateUsuarioSchema.safeParse({
       telefono: '',
       activo: false,

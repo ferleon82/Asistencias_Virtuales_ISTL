@@ -3,6 +3,7 @@ import { AppError } from '../../shared/middleware/errorHandler';
 import { asistenciasService } from './asistencias.service';
 import {
   asistenciaParamsSchema,
+  horarioParamsSchema,
   justificarAsistenciaSchema,
   listAsistenciasQuerySchema,
   locationSchema,
@@ -18,7 +19,7 @@ function getClientIp(req: Request): string {
 
 function requireUser(req: Request) {
   if (!req.user) {
-    throw new AppError('Autenticacion requerida.', 401);
+    throw new AppError('Autenticación requerida.', 401);
   }
   return req.user;
 }
@@ -89,7 +90,28 @@ export async function solicitarJustificacion(req: Request, res: Response, next: 
 
     res.status(200).json({
       ok: true,
-      message: 'Justificacion enviada correctamente.',
+      message: 'Justificación enviada correctamente.',
+      data: registro,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function solicitarJustificacionHorario(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { horarioId } = horarioParamsSchema.parse(req.params);
+    const payload = justificarAsistenciaSchema.parse(req.body);
+    const registro = await asistenciasService.solicitarJustificacionHorario(
+      horarioId,
+      payload,
+      requireUser(req),
+      getClientIp(req)
+    );
+
+    res.status(200).json({
+      ok: true,
+      message: 'Justificación enviada correctamente.',
       data: registro,
     });
   } catch (error) {
@@ -104,7 +126,7 @@ export async function aprobarJustificacion(req: Request, res: Response, next: Ne
 
     res.status(200).json({
       ok: true,
-      message: 'Justificacion aprobada correctamente.',
+      message: 'Justificación aprobada correctamente.',
       data: registro,
     });
   } catch (error) {
@@ -119,7 +141,7 @@ export async function rechazarJustificacion(req: Request, res: Response, next: N
 
     res.status(200).json({
       ok: true,
-      message: 'Justificacion rechazada correctamente.',
+      message: 'Justificación rechazada correctamente.',
       data: registro,
     });
   } catch (error) {

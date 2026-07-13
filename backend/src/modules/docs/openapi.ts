@@ -9,7 +9,7 @@ const authResponse = {
 
 const bearerErrorResponses = {
   '401': {
-    description: 'Token ausente o invalido',
+    description: 'Token ausente o inválido',
     content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } },
   },
   '403': {
@@ -34,7 +34,7 @@ export const openApiSpec = {
     title: 'ISTL Asistencia Virtual Docente API',
     version: '1.0.0',
     description:
-      'API REST para autenticacion institucional, horarios, asistencia docente, geolocalizacion y reportes del ISTL.',
+      'API REST para autenticación institucional, horarios, asistencia docente, geolocalización y reportes del ISTL.',
   },
   servers: [
     {
@@ -43,11 +43,11 @@ export const openApiSpec = {
     },
   ],
   tags: [
-    { name: 'Auth', description: 'Autenticacion, sesion y Google OAuth institucional' },
-    { name: 'Horarios', description: 'Gestion y consulta de horarios academicos' },
+    { name: 'Auth', description: 'Autenticación, sesión y Google OAuth institucional' },
+    { name: 'Horarios', description: 'Gestión y consulta de horarios académicos' },
     { name: 'Asistencias', description: 'Registro de entrada/salida, GPS y justificaciones' },
     { name: 'Reportes', description: 'Resumenes y exportaciones PDF/Excel' },
-    { name: 'Admin', description: 'Administracion de usuarios, carreras, materias y docentes' },
+    { name: 'Admin', description: 'Administración de usuarios, carreras, materias y docentes' },
     { name: 'Sistema', description: 'Salud y documentacion' },
   ],
   components: {
@@ -63,7 +63,7 @@ export const openApiSpec = {
         type: 'object',
         properties: {
           ok: { type: 'boolean', example: false },
-          message: { type: 'string', example: 'Autenticacion requerida.' },
+          message: { type: 'string', example: 'Autenticación requerida.' },
         },
       },
       EstadoAsistencia: {
@@ -343,7 +343,7 @@ export const openApiSpec = {
     '/api/v1/auth/login': {
       post: {
         tags: ['Auth'],
-        summary: 'Iniciar sesion con correo y contrasena',
+        summary: 'Iniciar sesión con correo y contraseña',
         requestBody: {
           required: true,
           content: { 'application/json': { schema: { $ref: '#/components/schemas/LoginRequest' } } },
@@ -353,8 +353,8 @@ export const openApiSpec = {
             description: 'Login exitoso',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/LoginResponse' } } },
           },
-          '400': { description: 'Payload invalido', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
-          '401': { description: 'Credenciales invalidas', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+          '400': { description: 'Payload inválido', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+          '401': { description: 'Credenciales inválidas', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
           '429': { description: 'Demasiados intentos de login' },
         },
       },
@@ -362,7 +362,7 @@ export const openApiSpec = {
     '/api/v1/auth/google': {
       get: {
         tags: ['Auth'],
-        summary: 'Iniciar sesion con Google institucional',
+        summary: 'Iniciar sesión con Google institucional',
         description:
           'Redirige al flujo OAuth de Google. Requiere GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL y GOOGLE_ALLOWED_DOMAIN.',
         responses: {
@@ -401,14 +401,14 @@ export const openApiSpec = {
     '/api/v1/auth/logout': {
       post: {
         tags: ['Auth'],
-        summary: 'Cerrar sesion',
+        summary: 'Cerrar sesión',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: { 'application/json': { schema: { $ref: '#/components/schemas/RefreshTokenRequest' } } },
         },
         responses: {
-          '200': { description: 'Sesion cerrada' },
+          '200': { description: 'Sesión cerrada' },
           ...bearerErrorResponses,
         },
       },
@@ -427,14 +427,14 @@ export const openApiSpec = {
     '/api/v1/auth/change-password': {
       put: {
         tags: ['Auth'],
-        summary: 'Cambiar contrasena',
+        summary: 'Cambiar contraseña',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: { 'application/json': { schema: { $ref: '#/components/schemas/ChangePasswordRequest' } } },
         },
         responses: {
-          '200': { description: 'Contrasena actualizada' },
+          '200': { description: 'Contraseña actualizada' },
           ...bearerErrorResponses,
         },
       },
@@ -442,7 +442,7 @@ export const openApiSpec = {
     '/api/v1/horarios': {
       get: {
         tags: ['Horarios'],
-        summary: 'Listar horarios segun rol y filtros',
+        summary: 'Listar horarios según rol y filtros',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'materia_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
@@ -493,7 +493,7 @@ export const openApiSpec = {
     '/api/v1/asistencias': {
       get: {
         tags: ['Asistencias'],
-        summary: 'Listar registros de asistencia segun rol',
+        summary: 'Listar registros de asistencia según rol',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'docente_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
@@ -524,7 +524,7 @@ export const openApiSpec = {
     '/api/v1/asistencias/estado-actual': {
       get: {
         tags: ['Asistencias'],
-        summary: 'Clase activa, registro abierto y permisos de marcacion del docente',
+        summary: 'Clase activa, registro abierto y permisos de marcación del docente',
         security: [{ bearerAuth: [] }],
         responses: {
           '200': {
@@ -548,7 +548,7 @@ export const openApiSpec = {
     '/api/v1/asistencias/entrada': {
       post: {
         tags: ['Asistencias'],
-        summary: 'Marcar ingreso con geolocalizacion opcional',
+        summary: 'Marcar ingreso con geolocalización opcional',
         description:
           'Solo docentes. Rechaza duplicados, clases fuera de ventana y registros abiertos pendientes de salida.',
         security: [{ bearerAuth: [] }],
@@ -565,7 +565,7 @@ export const openApiSpec = {
     '/api/v1/asistencias/salida': {
       post: {
         tags: ['Asistencias'],
-        summary: 'Marcar salida con geolocalizacion opcional',
+        summary: 'Marcar salida con geolocalización opcional',
         description: 'Solo docentes. La salida se habilita 10 minutos antes de la hora fin configurada.',
         security: [{ bearerAuth: [] }],
         requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/LocationRequest' } } } },
@@ -580,32 +580,32 @@ export const openApiSpec = {
     '/api/v1/asistencias/{id}/justificacion': {
       post: {
         tags: ['Asistencias'],
-        summary: 'Solicitar justificacion de asistencia',
+        summary: 'Solicitar justificación de asistencia',
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         requestBody: {
           required: true,
           content: { 'application/json': { schema: { $ref: '#/components/schemas/JustificacionRequest' } } },
         },
-        responses: { '200': { description: 'Justificacion enviada' }, ...bearerErrorResponses },
+        responses: { '200': { description: 'Justificación enviada' }, ...bearerErrorResponses },
       },
     },
     '/api/v1/asistencias/{id}/justificacion/aprobar': {
       post: {
         tags: ['Asistencias'],
-        summary: 'Aprobar justificacion',
+        summary: 'Aprobar justificación',
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
-        responses: { '200': { description: 'Justificacion aprobada' }, ...bearerErrorResponses },
+        responses: { '200': { description: 'Justificación aprobada' }, ...bearerErrorResponses },
       },
     },
     '/api/v1/asistencias/{id}/justificacion/rechazar': {
       post: {
         tags: ['Asistencias'],
-        summary: 'Rechazar justificacion',
+        summary: 'Rechazar justificación',
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
-        responses: { '200': { description: 'Justificacion rechazada' }, ...bearerErrorResponses },
+        responses: { '200': { description: 'Justificación rechazada' }, ...bearerErrorResponses },
       },
     },
     '/api/v1/reportes/resumen': {

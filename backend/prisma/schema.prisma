@@ -176,6 +176,8 @@ model RegistroAsistencia {
   timestamp_salida            DateTime?
   ip_entrada                  String?
   ip_salida                   String?
+  foto_entrada_url            String?
+  foto_salida_url             String?
   lat                         Decimal?               @db.Decimal(10, 8)
   lng                         Decimal?               @db.Decimal(11, 8)
   precision_m                 Int?
@@ -256,6 +258,32 @@ model AuditLog {
   @@index([tabla_afectada])
   @@index([created_at])
   @@map("audit_log")
+}
+
+model ModulePermission {
+  id           String   @id @default(uuid())
+  module_key   String
+  module_label String
+  rol          Rol
+  enabled      Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@unique([module_key, rol])
+  @@index([rol])
+  @@map("module_permissions")
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  label       String
+  value       String
+  description String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("system_settings")
 }
 
 model RefreshToken {

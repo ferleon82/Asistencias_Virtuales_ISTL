@@ -6,7 +6,9 @@ import {
   createUsuarioSchema,
   idParamsSchema,
   materiaSchema,
+  modulePermissionsSchema,
   periodoAcademicoSchema,
+  systemSettingsSchema,
   updatePeriodoAcademicoSchema,
   updateUsuarioSchema,
 } from './admin.schemas';
@@ -20,7 +22,7 @@ function getClientIp(req: Request): string {
 }
 
 function requireUser(req: Request) {
-  if (!req.user) throw new AppError('Autenticacion requerida.', 401);
+  if (!req.user) throw new AppError('Autenticación requerida.', 401);
   return req.user;
 }
 
@@ -116,7 +118,7 @@ export async function createPeriodoAcademico(req: Request, res: Response, next: 
   try {
     const payload = periodoAcademicoSchema.parse(req.body);
     const data = await adminService.createPeriodoAcademico(payload, requireUser(req), getClientIp(req));
-    res.status(201).json({ ok: true, message: 'Periodo academico creado correctamente.', data });
+    res.status(201).json({ ok: true, message: 'Período académico creado correctamente.', data });
   } catch (error) {
     next(error);
   }
@@ -127,7 +129,7 @@ export async function updatePeriodoAcademico(req: Request, res: Response, next: 
     const { id } = idParamsSchema.parse(req.params);
     const payload = updatePeriodoAcademicoSchema.parse(req.body);
     const data = await adminService.updatePeriodoAcademico(id, payload, requireUser(req), getClientIp(req));
-    res.status(200).json({ ok: true, message: 'Periodo academico actualizado correctamente.', data });
+    res.status(200).json({ ok: true, message: 'Período académico actualizado correctamente.', data });
   } catch (error) {
     next(error);
   }
@@ -137,7 +139,7 @@ export async function deactivatePeriodoAcademico(req: Request, res: Response, ne
   try {
     const { id } = idParamsSchema.parse(req.params);
     const data = await adminService.deactivatePeriodoAcademico(id, requireUser(req), getClientIp(req));
-    res.status(200).json({ ok: true, message: 'Periodo academico desactivado correctamente.', data });
+    res.status(200).json({ ok: true, message: 'Período académico desactivado correctamente.', data });
   } catch (error) {
     next(error);
   }
@@ -178,6 +180,53 @@ export async function listDocentes(_req: Request, res: Response, next: NextFunct
   try {
     const data = await adminService.listDocentes();
     res.status(200).json({ ok: true, data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listModulePermissions(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const data = await adminService.listModulePermissions();
+    res.status(200).json({ ok: true, data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listCurrentModulePermissions(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const data = await adminService.listCurrentModulePermissions(requireUser(req));
+    res.status(200).json({ ok: true, data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateModulePermissions(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const payload = modulePermissionsSchema.parse(req.body);
+    const data = await adminService.updateModulePermissions(payload, requireUser(req), getClientIp(req));
+    res.status(200).json({ ok: true, message: 'Configuración de módulos actualizada correctamente.', data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listSystemSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const data = await adminService.listSystemSettings();
+    res.status(200).json({ ok: true, data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateSystemSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const payload = systemSettingsSchema.parse(req.body);
+    const data = await adminService.updateSystemSettings(payload, requireUser(req), getClientIp(req));
+    res.status(200).json({ ok: true, message: 'Configuración del sistema actualizada correctamente.', data });
   } catch (error) {
     next(error);
   }

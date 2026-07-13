@@ -244,7 +244,7 @@ export class HorariosService {
     });
 
     if (!periodo || !periodo.activo) {
-      throw new AppError('Periodo academico no encontrado o inactivo.', 404);
+      throw new AppError('Período académico no encontrado o inactivo.', 404);
     }
 
     return {

@@ -171,7 +171,7 @@ export function AnalyticsDashboard({
         <div>
           <h2 className="section-title">Dashboard institucional</h2>
           <p className="section-subtitle">
-            Indicadores estadisticos para seguimiento de Rectorado y Talento Humano.
+            Indicadores estadísticos para seguimiento de Rectorado y Talento Humano.
           </p>
         </div>
         <span className="status-pill bg-istl-50 text-istl-700">Rectorado / Talento Humano</span>
@@ -180,7 +180,7 @@ export function AnalyticsDashboard({
       <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="font-brand text-lg font-bold text-brand-navy">Filtros de analisis</h3>
+            <h3 className="font-brand text-lg font-bold text-brand-navy">Filtros de análisis</h3>
             <p className="text-sm text-slate-500">Seleccione los campos que desea cruzar para recalcular el dashboard.</p>
           </div>
           <span className="status-pill bg-white text-slate-600">{activeFilterCount} filtros activos</span>
@@ -282,7 +282,7 @@ export function AnalyticsDashboard({
 
       <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
-          <p className="text-xs font-semibold uppercase text-slate-500">Metrica principal</p>
+          <p className="text-xs font-semibold uppercase text-slate-500">Métrica principal</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {metricOptions.map((metric) => (
               <button
@@ -329,7 +329,7 @@ export function AnalyticsDashboard({
               <p className="text-sm text-slate-500">
                 {mainView === 'carreras'
                   ? `Ordenado por ${selectedMetricMeta.label.toLowerCase()}.`
-                  : `Evolucion de ${selectedMetricMeta.label.toLowerCase()} dentro del rango.`}
+                  : `Evolución de ${selectedMetricMeta.label.toLowerCase()} dentro del rango.`}
               </p>
             </div>
             {mainView === 'carreras' && (
@@ -380,8 +380,8 @@ export function AnalyticsDashboard({
 
         <div className="rounded-md border border-slate-200 p-4">
           <div className="mb-4">
-            <h3 className="font-brand text-lg font-bold text-brand-navy">Distribucion de estados</h3>
-            <p className="text-sm text-slate-500">Participacion general del periodo filtrado.</p>
+            <h3 className="font-brand text-lg font-bold text-brand-navy">Distribución de estados</h3>
+            <p className="text-sm text-slate-500">Participación general del periodo filtrado.</p>
           </div>
           <div className="h-80 min-w-0">
             {stateData.length > 0 ? (
@@ -407,7 +407,7 @@ export function AnalyticsDashboard({
 
       <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-[1fr_1.4fr]">
         <div className="rounded-md border border-slate-200 p-4">
-          <h3 className="font-brand text-lg font-bold text-brand-navy">Lectura rapida</h3>
+          <h3 className="font-brand text-lg font-bold text-brand-navy">Lectura rápida</h3>
           <div className="mt-4 space-y-3">
             <div className="rounded-md bg-slate-50 p-3">
               <p className="text-xs font-semibold uppercase text-slate-500">Mayor actividad</p>
@@ -443,7 +443,7 @@ export function AnalyticsDashboard({
         <div className="rounded-md border border-slate-200 p-4">
           <div className="mb-4">
             <h3 className="font-brand text-lg font-bold text-brand-navy">Cumplimiento por periodo</h3>
-            <p className="text-sm text-slate-500">Linea porcentual frente a clases programadas.</p>
+            <p className="text-sm text-slate-500">Línea porcentual frente a clases programadas.</p>
           </div>
           <div className="h-72 min-w-0">
           <ResponsiveContainer width="100%" height="100%">

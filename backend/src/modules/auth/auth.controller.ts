@@ -137,7 +137,7 @@ export async function googleCallback(req: Request, res: Response, next: NextFunc
 
     const tokenData = (await tokenResponse.json()) as { access_token?: string };
     if (!tokenData.access_token) {
-      res.redirect(googleErrorRedirect('Google no devolvio un token valido.'));
+      res.redirect(googleErrorRedirect('Google no devolvió un token válido.'));
       return;
     }
 

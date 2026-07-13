@@ -13,12 +13,12 @@ const validHorario = {
 };
 
 describe('horarios schemas', () => {
-  it('acepta un horario valido', () => {
+  it('acepta un horario válido', () => {
     const result = createHorarioSchema.safeParse(validHorario);
     expect(result.success).toBe(true);
   });
 
-  it('rechaza horas con formato invalido', () => {
+  it('rechaza horas con formato inválido', () => {
     const result = createHorarioSchema.safeParse({
       ...validHorario,
       hora_inicio: '8:00',
@@ -47,7 +47,7 @@ describe('horarios schemas', () => {
     expect(result.success).toBe(false);
   });
 
-  it('permite actualizaciones parciales validas', () => {
+  it('permite actualizaciónes parciales válidas', () => {
     const result = updateHorarioSchema.safeParse({
       hora_inicio: '09:00',
       hora_fin: '11:00',

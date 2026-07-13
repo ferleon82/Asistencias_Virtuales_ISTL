@@ -24,6 +24,8 @@ interface ReportRow {
   estado: string;
   justificacion: string;
   ip_entrada: string;
+  foto_entrada_url: string;
+  foto_salida_url: string;
   lat: number | null;
   lng: number | null;
   precision_m: number | null;
@@ -265,7 +267,7 @@ function drawPdfFooter(document: PDFKit.PDFDocument): void {
       width: document.page.width - 80,
       align: 'left',
     })
-    .text(`Pagina ${document.bufferedPageRange().count}`, 40, bottom, {
+    .text(`Página ${document.bufferedPageRange().count}`, 40, bottom, {
       width: document.page.width - 80,
       align: 'right',
     })
@@ -281,7 +283,7 @@ function drawPdfHeader(document: PDFKit.PDFDocument, data: ReportSummaryData): v
   document
     .fillColor('#0b3358')
     .fontSize(18)
-    .text('Instituto Superior Tecnologico Loja', 40, 38, { width: 360 });
+    .text('Instituto Superior Tecnológico Loja', 40, 38, { width: 360 });
   document
     .fillColor('#0f766e')
     .fontSize(10)
@@ -484,6 +486,8 @@ function toRows(registros: Awaited<ReturnType<typeof fetchRegistros>>): ReportRo
     estado: registro.estado,
     justificacion: registro.justificacion ?? '',
     ip_entrada: registro.ip_entrada ?? '',
+    foto_entrada_url: registro.foto_entrada_url ?? '',
+    foto_salida_url: registro.foto_salida_url ?? '',
     lat: registro.lat ? Number(registro.lat) : null,
     lng: registro.lng ? Number(registro.lng) : null,
     precision_m: registro.precision_m,
@@ -691,17 +695,19 @@ export class ReportesService {
       { header: 'Carrera', key: 'carrera', width: 24 },
       { header: 'Materia', key: 'materia', width: 32 },
       { header: 'Ciclo', key: 'ciclo', width: 14 },
-      { header: 'Periodo academico', key: 'periodo_academico', width: 26 },
-      { header: 'Dia', key: 'dia', width: 14 },
+      { header: 'Período académico', key: 'periodo_academico', width: 26 },
+      { header: 'Día', key: 'dia', width: 14 },
       { header: 'Horario', key: 'horario', width: 16 },
       { header: 'Entrada', key: 'entrada', width: 20 },
       { header: 'Salida', key: 'salida', width: 20 },
       { header: 'Estado', key: 'estado', width: 14 },
-      { header: 'Justificacion', key: 'justificacion', width: 36 },
+      { header: 'Justificación', key: 'justificacion', width: 36 },
       { header: 'IP entrada', key: 'ip_entrada', width: 18 },
+      { header: 'Foto entrada', key: 'foto_entrada_url', width: 34 },
+      { header: 'Foto salida', key: 'foto_salida_url', width: 34 },
       { header: 'Latitud', key: 'lat', width: 14 },
       { header: 'Longitud', key: 'lng', width: 14 },
-      { header: 'Precision m', key: 'precision_m', width: 14 },
+      { header: 'Precisión m', key: 'precision_m', width: 14 },
     ];
     registrosSheet.addRows(data.registros);
 

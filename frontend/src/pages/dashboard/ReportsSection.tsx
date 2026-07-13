@@ -2,6 +2,13 @@ import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { LocationLink } from './LocationLink';
 import type { CarreraOption, DocenteOption, MateriaOption, PeriodoAcademicoOption, ReportSummary } from './types';
 
+const API_URL = import.meta.env.VITE_API_URL ?? '';
+
+function attendancePhotoUrl(url?: string): string {
+  if (!url) return '';
+  return url.startsWith('/uploads') ? `${API_URL}${url}` : url;
+}
+
 interface ReportsSectionProps {
   reportFrom: string;
   setReportFrom: Dispatch<SetStateAction<string>>;
@@ -242,7 +249,7 @@ export function ReportsSection({
               onClick={() => setPreviewPage((current) => Math.max(1, current - 1))}
               disabled={safePreviewPage === 1 || totalPreviewRecords === 0}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-sm font-semibold text-brand-navy disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Pagina anterior"
+              aria-label="Página anterior"
             >
               &lt;
             </button>
@@ -254,14 +261,14 @@ export function ReportsSection({
               onClick={() => setPreviewPage((current) => Math.min(totalPreviewPages, current + 1))}
               disabled={safePreviewPage === totalPreviewPages || totalPreviewRecords === 0}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-sm font-semibold text-brand-navy disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Pagina siguiente"
+              aria-label="Página siguiente"
             >
               &gt;
             </button>
           </div>
         </div>
         <div className="table-container">
-          <table className="min-w-[920px] divide-y divide-slate-200 text-sm">
+          <table className="min-w-[1020px] divide-y divide-slate-200 text-sm">
           <thead>
             <tr className="text-left text-xs uppercase text-slate-500">
               <th className="py-2 pr-4">Docente</th>
@@ -270,8 +277,9 @@ export function ReportsSection({
               <th className="py-2 pr-4">Entrada</th>
               <th className="py-2 pr-4">Salida</th>
               <th className="py-2 pr-4">Estado</th>
-              <th className="py-2 pr-4">Ubicacion</th>
-              <th className="py-2 pr-4">Justificacion</th>
+              <th className="py-2 pr-4">Ubicación</th>
+              <th className="py-2 pr-4">Foto</th>
+              <th className="py-2 pr-4">Justificación</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -289,6 +297,34 @@ export function ReportsSection({
                 </td>
                 <td className="py-2 pr-4">
                   <LocationLink lat={registro.lat} lng={registro.lng} precision={registro.precision_m} />
+                </td>
+                <td className="py-2 pr-4">
+                  <div className="flex flex-col gap-1 text-xs">
+                    {registro.foto_entrada_url ? (
+                      <a
+                        href={attendancePhotoUrl(registro.foto_entrada_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-brand-navy underline"
+                      >
+                        Entrada
+                      </a>
+                    ) : (
+                      <span className="text-slate-400">Entrada -</span>
+                    )}
+                    {registro.foto_salida_url ? (
+                      <a
+                        href={attendancePhotoUrl(registro.foto_salida_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-brand-navy underline"
+                      >
+                        Salida
+                      </a>
+                    ) : (
+                      <span className="text-slate-400">Salida -</span>
+                    )}
+                  </div>
                 </td>
                 <td className="py-2 pr-4">
                   {registro.justificacion ? (
@@ -323,7 +359,7 @@ export function ReportsSection({
             ))}
             {totalPreviewRecords === 0 && (
               <tr>
-                <td className="py-4 text-slate-500" colSpan={8}>No hay registros para los filtros seleccionados.</td>
+                <td className="py-4 text-slate-500" colSpan={9}>No hay registros para los filtros seleccionados.</td>
               </tr>
             )}
           </tbody>

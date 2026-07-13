@@ -8,7 +8,7 @@ const timeSchema = z
 const dateSchema = z.coerce.date();
 
 export const horarioParamsSchema = z.object({
-  id: z.string().uuid('ID de horario invalido'),
+  id: z.string().uuid('ID de horario inválido'),
 });
 
 export const horarioQuerySchema = z.object({
@@ -24,7 +24,7 @@ export const horarioQuerySchema = z.object({
 
 const horarioBaseSchema = z.object({
   materia_id: z.string().uuid('Materia requerida'),
-  periodo_academico_id: z.string().uuid('Periodo academico invalido').optional(),
+  periodo_academico_id: z.string().uuid('Período académico inválido').optional(),
   dia_semana: z.nativeEnum(DiaSemana),
   hora_inicio: timeSchema,
   hora_fin: timeSchema,

@@ -6,7 +6,9 @@ import type {
   CarreraInput,
   CreateUsuarioInput,
   MateriaInput,
+  ModulePermissionsInput,
   PeriodoAcademicoInput,
+  SystemSettingsInput,
   UpdateUsuarioInput,
 } from './admin.schemas';
 
@@ -14,6 +16,64 @@ interface AuthScope {
   id: string;
   rol: string;
 }
+
+const systemModules: Array<{ key: string; label: string; roles: Rol[] }> = [
+  {
+    key: 'teacher_attendance',
+    label: 'Marcar asistencia',
+    roles: [Rol.docente],
+  },
+  {
+    key: 'teacher_day',
+    label: 'Mi jornada docente',
+    roles: [Rol.docente],
+  },
+  {
+    key: 'analytics',
+    label: 'Dashboard interactivo',
+    roles: [Rol.tics, Rol.rectorado, Rol.talento_humano],
+  },
+  {
+    key: 'users',
+    label: 'GestiÃƒÂ³n de usuarios',
+    roles: [Rol.tics, Rol.rectorado, Rol.talento_humano],
+  },
+  {
+    key: 'academic',
+    label: 'GestiÃƒÂ³n acadÃƒÂ©mica',
+    roles: [Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano],
+  },
+  {
+    key: 'schedules',
+    label: 'AdministraciÃƒÂ³n de horarios',
+    roles: [Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano],
+  },
+  {
+    key: 'reports',
+    label: 'Reportes de asistencia',
+    roles: [Rol.docente, Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano],
+  },
+  {
+    key: 'system_status',
+    label: 'Estado del sistema',
+    roles: [Rol.tics],
+  },
+  {
+    key: 'module_permissions',
+    label: 'ConfiguraciÃƒÂ³n de mÃƒÂ³dulos',
+    roles: [Rol.tics],
+  },
+];
+
+const configurableRoles: Rol[] = [Rol.docente, Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano];
+
+const defaultSystemSettings = {
+  attendance_photo_required: {
+    label: 'Registro con imagen',
+    value: 'false',
+    description: 'Exige capturar una foto del docente al marcar ingreso y salida.',
+  },
+} as const;
 
 function isFullAdmin(user: AuthScope): boolean {
   return user.rol === Rol.tics || user.rol === Rol.rectorado || user.rol === Rol.talento_humano;
@@ -207,7 +267,7 @@ export class AdminService {
 
   async createPeriodoAcademico(data: PeriodoAcademicoInput, user: AuthScope, ip: string) {
     if (!isFullAdmin(user)) {
-      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden crear periodos academicos.', 403);
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden crear perÃƒÂ­odos acadÃƒÂ©micos.', 403);
     }
 
     const periodo = await prisma.periodoAcademico.create({ data });
@@ -217,7 +277,7 @@ export class AdminService {
 
   async updatePeriodoAcademico(id: string, data: Partial<PeriodoAcademicoInput>, user: AuthScope, ip: string) {
     if (!isFullAdmin(user)) {
-      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden actualizar periodos academicos.', 403);
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden actualizar perÃƒÂ­odos acadÃƒÂ©micos.', 403);
     }
 
     const periodo = await prisma.periodoAcademico.update({ where: { id }, data });
@@ -239,7 +299,7 @@ export class AdminService {
 
   async deactivatePeriodoAcademico(id: string, user: AuthScope, ip: string) {
     if (!isFullAdmin(user)) {
-      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden desactivar periodos academicos.', 403);
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden desactivar perÃƒÂ­odos acadÃƒÂ©micos.', 403);
     }
 
     const periodo = await prisma.periodoAcademico.update({
@@ -309,6 +369,121 @@ export class AdminService {
     });
   }
 
+  async listModulePermissions() {
+    await this.ensureModulePermissions();
+
+    return prisma.modulePermission.findMany({
+      orderBy: [{ module_key: 'asc' }, { rol: 'asc' }],
+    });
+  }
+
+  async listCurrentModulePermissions(user: AuthScope) {
+    await this.ensureModulePermissions();
+
+    return prisma.modulePermission.findMany({
+      where: { rol: user.rol as Rol },
+      orderBy: { module_key: 'asc' },
+    });
+  }
+
+  async updateModulePermissions(data: ModulePermissionsInput, user: AuthScope, ip: string) {
+    if (user.rol !== Rol.tics) {
+      throw new AppError('Solo TICs puede configurar mÃƒÂ³dulos del sistema.', 403);
+    }
+
+    await this.ensureModulePermissions();
+    const validModules = new Set(systemModules.map((module) => module.key));
+
+    await prisma.$transaction(
+      data.permissions
+        .filter((permission) => validModules.has(permission.module_key))
+        .map((permission) =>
+          prisma.modulePermission.update({
+            where: {
+              module_key_rol: {
+                module_key: permission.module_key,
+                rol: permission.rol,
+              },
+            },
+            data: {
+              enabled: permission.module_key === 'module_permissions' && permission.rol === Rol.tics ? true : permission.enabled,
+            },
+          })
+        )
+    );
+
+    await this.audit(user.id, 'UPDATE_MODULE_PERMISSIONS', 'module_permissions', null, ip, data);
+    return this.listModulePermissions();
+  }
+
+  async listSystemSettings() {
+    await this.ensureSystemSettings();
+    const settings = await prisma.systemSetting.findMany({ orderBy: { key: 'asc' } });
+
+    return {
+      attendance_photo_required:
+        settings.find((setting) => setting.key === 'attendance_photo_required')?.value !== 'false',
+      items: settings,
+    };
+  }
+
+  async updateSystemSettings(data: SystemSettingsInput, user: AuthScope, ip: string) {
+    if (user.rol !== Rol.tics) {
+      throw new AppError('Solo TICs puede configurar el sistema.', 403);
+    }
+
+    await this.ensureSystemSettings();
+    const setting = await prisma.systemSetting.update({
+      where: { key: 'attendance_photo_required' },
+      data: { value: String(data.attendance_photo_required) },
+    });
+
+    await this.audit(user.id, 'UPDATE_SYSTEM_SETTINGS', 'system_settings', setting.id, ip, data);
+    return this.listSystemSettings();
+  }
+
+  private async ensureModulePermissions(): Promise<void> {
+    await prisma.$transaction(
+      systemModules.flatMap((module) =>
+        configurableRoles.map((rol) =>
+          prisma.modulePermission.upsert({
+            where: {
+              module_key_rol: {
+                module_key: module.key,
+                rol,
+              },
+            },
+            create: {
+              module_key: module.key,
+              module_label: module.label,
+              rol,
+              enabled: module.roles.includes(rol),
+            },
+            update: {
+              module_label: module.label,
+            },
+          })
+        )
+      )
+    );
+  }
+
+  private async ensureSystemSettings(): Promise<void> {
+    await prisma.systemSetting.upsert({
+      where: { key: 'attendance_photo_required' },
+      create: {
+        key: 'attendance_photo_required',
+        label: defaultSystemSettings.attendance_photo_required.label,
+        value: defaultSystemSettings.attendance_photo_required.value,
+        description: defaultSystemSettings.attendance_photo_required.description,
+      },
+      update: {
+        label: defaultSystemSettings.attendance_photo_required.label,
+        description: defaultSystemSettings.attendance_photo_required.description,
+      },
+    });
+  }
+
   private async assertCanManageCarrera(carreraId: string, user: AuthScope): Promise<void> {
     if (isFullAdmin(user)) return;
 
@@ -344,7 +519,7 @@ export class AdminService {
     userId: string,
     accion: string,
     table: string,
-    recordId: string,
+    recordId: string | null,
     ip: string,
     payload: unknown
   ): Promise<void> {

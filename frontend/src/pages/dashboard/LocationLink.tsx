@@ -19,7 +19,7 @@ export function LocationLink({ lat, lng, precision }: LocationLinkProps) {
       target="_blank"
       rel="noreferrer"
       className="inline-flex items-center rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-brand-navy hover:bg-istl-50"
-      title={precision ? `Precision aproximada: ${precision} m` : 'Ver ubicacion en mapa'}
+      title={precision ? `Precisión aproximada: ${precision} m` : 'Ver ubicación en mapa'}
     >
       Mapa{precision ? ` - ${precision} m` : ''}
     </a>

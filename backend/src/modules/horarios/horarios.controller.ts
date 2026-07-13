@@ -13,7 +13,7 @@ function getClientIp(req: Request): string {
 
 function requireUser(req: Request) {
   if (!req.user) {
-    throw new AppError('Autenticacion requerida.', 401);
+    throw new AppError('Autenticación requerida.', 401);
   }
   return req.user;
 }

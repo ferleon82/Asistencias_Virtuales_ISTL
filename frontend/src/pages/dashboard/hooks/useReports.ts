@@ -149,7 +149,7 @@ export function useReports({ materias, horarios, periodosAcademicos }: UseReport
       await api.post(`/asistencias/${id}/justificacion/${action}`);
       await loadReportSummary();
     } catch (error) {
-      setReportError(getApiMessage(error, 'No se pudo procesar la justificacion.'));
+      setReportError(getApiMessage(error, 'No se pudo procesar la justificación.'));
     } finally {
       setReportLoading(false);
     }

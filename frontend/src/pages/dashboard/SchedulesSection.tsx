@@ -47,13 +47,13 @@ export function SchedulesSection({
     <section className="dashboard-section">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="section-title">Administracion de horarios</h2>
+          <h2 className="section-title">Administración de horarios</h2>
           <p className="section-subtitle">
-            Cree horarios academicos a partir de las materias registradas.
+            Cree horarios académicos a partir de las materias registradas.
           </p>
         </div>
         <div className="text-sm text-slate-500">
-          {periodosAcademicos.length} periodos - {carreras.length} carreras - {materias.length} materias - {docentes.length} docentes
+          {periodosAcademicos.length} períodos - {carreras.length} carreras - {materias.length} materias - {docentes.length} docentes
         </div>
       </div>
 
@@ -84,7 +84,7 @@ export function SchedulesSection({
           </select>
         </label>
         <label className="text-sm text-slate-600 md:col-span-2">
-          Periodo academico
+          Período académico
           <select
             value={horarioForm.periodo_academico_id}
             onChange={(event) => {
@@ -99,7 +99,7 @@ export function SchedulesSection({
             }}
             className="input-control"
           >
-            <option value="">Sin periodo</option>
+            <option value="">Sin período</option>
             {periodosAcademicos
               .filter((periodo) => periodo.activo)
               .map((periodo) => (
@@ -110,14 +110,21 @@ export function SchedulesSection({
           </select>
         </label>
         <label className="text-sm text-slate-600">
-          Dia
+          Día
           <select
             value={horarioForm.dia_semana}
             onChange={(event) => setHorarioForm((current) => ({ ...current, dia_semana: event.target.value }))}
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-teal"
           >
-            {['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'].map((dia) => (
-              <option key={dia} value={dia}>{dia}</option>
+            {[
+              ['lunes', 'lunes'],
+              ['martes', 'martes'],
+              ['miercoles', 'miércoles'],
+              ['jueves', 'jueves'],
+              ['viernes', 'viernes'],
+              ['sabado', 'sábado'],
+            ].map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
             ))}
           </select>
         </label>
@@ -128,8 +135,12 @@ export function SchedulesSection({
             onChange={(event) => setHorarioForm((current) => ({ ...current, modalidad: event.target.value }))}
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-teal"
           >
-            {['virtual', 'presencial', 'hibrida'].map((modalidad) => (
-              <option key={modalidad} value={modalidad}>{modalidad}</option>
+            {[
+              ['virtual', 'virtual'],
+              ['presencial', 'presencial'],
+              ['hibrida', 'híbrida'],
+            ].map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
             ))}
           </select>
         </label>
@@ -203,7 +214,7 @@ export function SchedulesSection({
             onClick={cancelHorarioEdit}
             className="btn-secondary self-end"
           >
-            Cancelar edicion
+            Cancelar edición
           </button>
         )}
       </div>
@@ -214,7 +225,7 @@ export function SchedulesSection({
             <tr className="text-left text-xs uppercase text-slate-500">
               <th className="py-2 pr-4">Materia</th>
               <th className="py-2 pr-4">Carrera</th>
-              <th className="py-2 pr-4">Dia</th>
+              <th className="py-2 pr-4">Día</th>
               <th className="py-2 pr-4">Hora</th>
               <th className="py-2 pr-4">Ciclo</th>
               <th className="py-2 pr-4">Periodo</th>

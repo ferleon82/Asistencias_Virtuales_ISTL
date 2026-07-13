@@ -13,11 +13,16 @@ import {
   listCarreras,
   listDocentes,
   listMaterias,
+  listCurrentModulePermissions,
+  listModulePermissions,
   listPeriodosAcademicos,
+  listSystemSettings,
   listUsuarios,
   updateCarrera,
   updateMateria,
+  updateModulePermissions,
   updatePeriodoAcademico,
+  updateSystemSettings,
   updateUsuario,
 } from './admin.controller';
 
@@ -29,6 +34,16 @@ router.get(
   '/periodos-academicos',
   roleGuard(Rol.docente, Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano),
   listPeriodosAcademicos
+);
+router.get(
+  '/module-permissions/current',
+  roleGuard(Rol.docente, Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano),
+  listCurrentModulePermissions
+);
+router.get(
+  '/system-settings',
+  roleGuard(Rol.docente, Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano),
+  listSystemSettings
 );
 
 router.use(roleGuard(Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano));
@@ -52,5 +67,9 @@ router.put('/periodos-academicos/:id', updatePeriodoAcademico);
 router.delete('/periodos-academicos/:id', deactivatePeriodoAcademico);
 
 router.get('/docentes', listDocentes);
+
+router.get('/module-permissions', roleGuard(Rol.tics), listModulePermissions);
+router.put('/module-permissions', roleGuard(Rol.tics), updateModulePermissions);
+router.put('/system-settings', roleGuard(Rol.tics), updateSystemSettings);
 
 export default router;

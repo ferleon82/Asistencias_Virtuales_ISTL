@@ -146,11 +146,11 @@ export function useUsers(canManageUsers: boolean, onUsersChanged?: () => Promise
 
     try {
       const { data } = await api.put(`/admin/usuarios/${usuario.id}`, { password: 'Password123' });
-      setUsuarioMessage(data.message ?? 'Contrasena reiniciada correctamente.');
+      setUsuarioMessage(data.message ?? 'Contraseña reiniciada correctamente.');
       await loadUsuarios();
       await onUsersChanged?.();
     } catch (error) {
-      setUsuarioError(getApiMessage(error, 'No se pudo reiniciar la contrasena.'));
+      setUsuarioError(getApiMessage(error, 'No se pudo reiniciar la contraseña.'));
     } finally {
       setUsuarioLoading(false);
     }

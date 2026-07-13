@@ -17,6 +17,7 @@ export interface EstadoAsistenciaActual {
   } | null;
   puedeMarcarEntrada: boolean;
   puedeMarcarSalida: boolean;
+  attendancePhotoRequired?: boolean;
   salidaDisponibleDesde?: string | null;
   salidaBloqueadaMotivo?: string | null;
 }
@@ -25,6 +26,7 @@ export interface LocationPayload {
   lat?: number;
   lng?: number;
   precision_m?: number;
+  foto_base64?: string;
 }
 
 export interface ReportSummary {
@@ -85,6 +87,8 @@ export interface ReportRow {
   lat?: number | string | null;
   lng?: number | string | null;
   precision_m?: number | null;
+  foto_entrada_url?: string | null;
+  foto_salida_url?: string | null;
 }
 
 export interface CarreraOption {
@@ -210,6 +214,8 @@ export interface AsistenciaItem {
   lat?: number | string | null;
   lng?: number | string | null;
   precision_m?: number | null;
+  foto_entrada_url?: string | null;
+  foto_salida_url?: string | null;
   estado: string;
   justificacion?: string | null;
   horario: {
@@ -251,4 +257,16 @@ export interface PeriodoAcademicoForm {
   fecha_inicio: string;
   fecha_fin: string;
   activo: boolean;
+}
+
+export interface ModulePermission {
+  id: string;
+  module_key: string;
+  module_label: string;
+  rol: string;
+  enabled: boolean;
+}
+
+export interface SystemSettings {
+  attendance_photo_required: boolean;
 }

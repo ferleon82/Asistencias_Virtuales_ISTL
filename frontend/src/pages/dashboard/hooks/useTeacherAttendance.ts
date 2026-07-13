@@ -75,14 +75,17 @@ export function useTeacherAttendance({ userRole, diaSemanaEcuador, loadReportSum
     return () => window.clearInterval(intervalId);
   }, [loadDocentePanel, userRole]);
 
-  const markAttendance = async (type: 'entrada' | 'salida') => {
+  const markAttendance = async (type: 'entrada' | 'salida', fotoBase64?: string) => {
     setAttendanceLoading(true);
     setAttendanceError('');
     setAttendanceMessage('');
 
     try {
       const location = await getBrowserLocation();
-      const { data } = await api.post(`/asistencias/${type}`, location);
+      const { data } = await api.post(`/asistencias/${type}`, {
+        ...location,
+        ...(fotoBase64 ? { foto_base64: fotoBase64 } : {}),
+      });
       setAttendanceMessage(data.message);
       await loadEstadoAsistencia();
       await loadDocentePanel();
@@ -102,16 +105,18 @@ export function useTeacherAttendance({ userRole, diaSemanaEcuador, loadReportSum
     setAttendanceMessage('');
 
     try {
-      const { data } = await api.post(`/asistencias/${justificacionRegistroId}/justificacion`, {
-        justificacion: justificacionText,
-      });
-      setAttendanceMessage(data.message ?? 'Justificacion enviada correctamente.');
+      const endpoint = justificacionRegistroId.startsWith('horario:')
+        ? `/asistencias/horario/${justificacionRegistroId.replace('horario:', '')}/justificacion`
+        : `/asistencias/${justificacionRegistroId}/justificacion`;
+      const { data } = await api.post(endpoint, { justificacion: justificacionText });
+      setAttendanceMessage(data.message ?? 'Justificación enviada correctamente.');
       setJustificacionRegistroId(null);
       setJustificacionText('');
+      await loadEstadoAsistencia();
       await loadDocentePanel();
       await loadReportSummary();
     } catch (error) {
-      setAttendanceError(getApiMessage(error, 'No se pudo enviar la justificacion.'));
+      setAttendanceError(getApiMessage(error, 'No se pudo enviar la justificación.'));
     } finally {
       setAttendanceLoading(false);
     }

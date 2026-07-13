@@ -1,4 +1,6 @@
 import { DiaSemana, EstadoAsistencia, Prisma, Rol } from '@prisma/client';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { prisma } from '../../config/database';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { calcularEstadoAsistencia, nowInEcuador } from '../../shared/utils/timezone';
@@ -8,6 +10,8 @@ interface AuthScope {
   id: string;
   rol: string;
 }
+
+const attendanceUploadsDir = path.resolve(process.cwd(), 'uploads', 'asistencias');
 
 const asistenciaInclude = {
   docente: {
@@ -53,7 +57,7 @@ function getDiaSemana(date: Date): DiaSemana {
 
   const dia = map[day];
   if (!dia) {
-    throw new AppError('No existen horarios academicos configurados para domingo.', 404);
+    throw new AppError('No existen horarios académicos configurados para domingo.', 404);
   }
 
   return dia;
@@ -80,6 +84,10 @@ function timeOnDate(date: Date, time: string): Date {
 
 function subtractMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() - minutes * 60_000);
+}
+
+function addMinutes(date: Date, minutes: number): Date {
+  return new Date(date.getTime() + minutes * 60_000);
 }
 
 function horarioPermiteIngreso(now: Date, horaInicio: string, horaFin: string): boolean {
@@ -114,6 +122,48 @@ function buildFiltersWhere(filters: ListAsistenciasQueryInput): Prisma.RegistroA
   };
 }
 
+async function isAttendancePhotoRequired(): Promise<boolean> {
+  const setting = await prisma.systemSetting.findUnique({
+    where: { key: 'attendance_photo_required' },
+    select: { value: true },
+  });
+
+  return setting?.value !== 'false';
+}
+
+async function saveAttendancePhoto(
+  photoBase64: string | undefined,
+  userId: string,
+  type: 'entrada' | 'salida',
+  required: boolean
+): Promise<string | null> {
+  if (!photoBase64) {
+    if (!required) return null;
+    throw new AppError('Debe capturar una foto con la cámara para registrar la asistencia.', 400);
+  }
+
+  const match = photoBase64.match(/^data:image\/(jpeg|jpg|png);base64,(.+)$/);
+  if (!match) {
+    throw new AppError('La foto enviada no tiene un formato válido.', 400);
+  }
+
+  const extension = match[1] === 'png' ? 'png' : 'jpg';
+  const buffer = Buffer.from(match[2], 'base64');
+
+  if (buffer.length > 650_000) {
+    throw new AppError('La foto de asistencia supera el tamaño permitido.', 413);
+  }
+
+  await fs.mkdir(attendanceUploadsDir, { recursive: true });
+
+  const safeUserId = userId.replace(/[^a-zA-Z0-9-]/g, '');
+  const filename = `${safeUserId}-${type}-${Date.now()}.${extension}`;
+  const filePath = path.join(attendanceUploadsDir, filename);
+  await fs.writeFile(filePath, buffer);
+
+  return `/uploads/asistencias/${filename}`;
+}
+
 export class AsistenciasService {
   async getEstadoActual(user: AuthScope) {
     if (user.rol !== Rol.docente) {
@@ -123,17 +173,21 @@ export class AsistenciasService {
     const now = nowInEcuador();
     const horario = await this.findHorarioActivo(user.id, now);
     const registroAbierto = await this.findRegistroAbierto(user.id);
-    const registroDelHorario = horario ? await this.findRegistroDelHorarioHoy(user.id, horario.id, now) : null;
+    const registroDelHorario = horario
+      ? await this.findRegistroDelHorarioHoyIncluyendoJustificacion(user.id, horario.id, now)
+      : null;
     const salidaDisponibleDesde = registroAbierto
       ? subtractMinutes(timeOnDate(now, registroAbierto.horario.hora_fin), 10)
       : null;
     const puedeMarcarSalida = !!registroAbierto && !!salidaDisponibleDesde && now >= salidaDisponibleDesde;
+    const attendancePhotoRequired = await isAttendancePhotoRequired();
 
     return {
       horarioActivo: horario,
       registroAbierto,
       puedeMarcarEntrada: !!horario && !registroAbierto && !registroDelHorario,
       puedeMarcarSalida,
+      attendancePhotoRequired,
       salidaDisponibleDesde: salidaDisponibleDesde?.toISOString() ?? null,
       salidaBloqueadaMotivo:
         registroAbierto && !puedeMarcarSalida
@@ -158,7 +212,7 @@ export class AsistenciasService {
       throw new AppError('No hay una clase activa dentro de la ventana de marcado.', 404);
     }
 
-    const alreadyMarked = await this.findRegistroDelHorarioHoy(user.id, horario.id, now);
+    const alreadyMarked = await this.findRegistroDelHorarioHoyIncluyendoJustificacion(user.id, horario.id, now);
     if (alreadyMarked) {
       throw new AppError('La asistencia de esta clase ya fue registrada. No puede marcar ingreso nuevamente.', 409);
     }
@@ -168,12 +222,14 @@ export class AsistenciasService {
       throw new AppError('La clase no esta dentro de la ventana permitida de marcado.', 400);
     }
 
+    const photoRequired = await isAttendancePhotoRequired();
     const registro = await prisma.registroAsistencia.create({
       data: {
         docente_id: user.id,
         horario_id: horario.id,
         timestamp_entrada: now,
         ip_entrada: ip,
+        foto_entrada_url: await saveAttendancePhoto(location.foto_base64, user.id, 'entrada', photoRequired),
         lat: location.lat,
         lng: location.lng,
         precision_m: location.precision_m,
@@ -186,6 +242,7 @@ export class AsistenciasService {
     await this.audit(user.id, 'MARCAR_ENTRADA', registro.id, ip, {
       horario_id: horario.id,
       estado: estadoCalculado,
+      foto_entrada_url: registro.foto_entrada_url,
     });
 
     return registro;
@@ -207,20 +264,23 @@ export class AsistenciasService {
       throw new AppError('La salida se habilita 10 minutos antes de la hora de fin de la clase.', 400);
     }
 
+    const photoRequired = await isAttendancePhotoRequired();
     const registro = await prisma.registroAsistencia.update({
-      where: { id: open.id },
       data: {
         timestamp_salida: now,
         ip_salida: ip,
+        foto_salida_url: await saveAttendancePhoto(location.foto_base64, user.id, 'salida', photoRequired),
         lat: location.lat ?? open.lat,
         lng: location.lng ?? open.lng,
         precision_m: location.precision_m ?? open.precision_m,
       },
       include: asistenciaInclude,
+      where: { id: open.id },
     });
 
     await this.audit(user.id, 'MARCAR_SALIDA', registro.id, ip, {
       horario_id: registro.horario_id,
+      foto_salida_url: registro.foto_salida_url,
     });
 
     return registro;
@@ -258,6 +318,20 @@ export class AsistenciasService {
       throw new AppError('Este registro ya fue justificado.', 409);
     }
 
+    if (current.timestamp_salida) {
+      throw new AppError('La justificación solo puede solicitarse mientras la marcación permanece abierta.', 400);
+    }
+
+    if (!current.timestamp_entrada) {
+      throw new AppError('No existe una marcación de entrada para justificar.', 400);
+    }
+
+    const now = nowInEcuador();
+    const markingWindowEnd = addMinutes(timeOnDate(current.timestamp_entrada, current.horario.hora_inicio), 15);
+    if (now > markingWindowEnd) {
+      throw new AppError('La justificación solo puede solicitarse dentro del tiempo de marcado de la clase.', 400);
+    }
+
     const registro = await prisma.registroAsistencia.update({
       where: { id },
       data: { justificacion: data.justificacion },
@@ -268,11 +342,77 @@ export class AsistenciasService {
     return registro;
   }
 
+  async solicitarJustificacionHorario(horarioId: string, data: JustificarAsistenciaInput, user: AuthScope, ip: string) {
+    if (user.rol !== Rol.docente) {
+      throw new AppError('Solo los docentes pueden solicitar justificaciones.', 403);
+    }
+
+    const now = nowInEcuador();
+    const horario = await prisma.horario.findFirst({
+      where: {
+        id: horarioId,
+        activo: true,
+        fecha_inicio_ciclo: { lte: now },
+        fecha_fin_ciclo: { gte: now },
+        materia: {
+          docente_id: user.id,
+          activa: true,
+        },
+      },
+      include: {
+        materia: {
+          select: {
+            id: true,
+            nombre: true,
+            codigo: true,
+            docente_id: true,
+            carrera: {
+              select: {
+                id: true,
+                nombre: true,
+                codigo: true,
+                coordinador_id: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!horario || !horarioPermiteIngreso(now, horario.hora_inicio, horario.hora_fin)) {
+      throw new AppError('La justificación solo puede solicitarse dentro del tiempo de marcado de la clase.', 400);
+    }
+
+    const existing = await this.findRegistroDelHorarioHoyIncluyendoJustificacion(user.id, horario.id, now);
+    if (existing) {
+      throw new AppError('Ya existe una marcación o justificación registrada para esta clase.', 409);
+    }
+
+    const registro = await prisma.registroAsistencia.create({
+      data: {
+        docente_id: user.id,
+        horario_id: horario.id,
+        estado: EstadoAsistencia.ausente,
+        justificacion: data.justificacion,
+        ip_entrada: ip,
+        user_agent: 'justificacion_sin_marcación',
+      },
+      include: asistenciaInclude,
+    });
+
+    await this.audit(user.id, 'SOLICITAR_JUSTIFICACION_HORARIO', registro.id, ip, {
+      horario_id: horario.id,
+      justificacion: data.justificacion,
+    });
+
+    return registro;
+  }
+
   async aprobarJustificacion(id: string, user: AuthScope, ip: string) {
     const current = await this.getManageableRegistro(id, user);
 
     if (!current.justificacion) {
-      throw new AppError('El registro no tiene justificacion solicitada.', 400);
+      throw new AppError('El registro no tiene justificación solicitada.', 400);
     }
 
     const registro = await prisma.registroAsistencia.update({
@@ -360,18 +500,29 @@ export class AsistenciasService {
     });
   }
 
-  private async findRegistroDelHorarioHoy(docenteId: string, horarioId: string, date: Date) {
+  private async findRegistroDelHorarioHoyIncluyendoJustificacion(docenteId: string, horarioId: string, date: Date) {
     return prisma.registroAsistencia.findFirst({
       where: {
         docente_id: docenteId,
         horario_id: horarioId,
-        timestamp_entrada: {
-          gte: startOfDay(date),
-          lte: endOfDay(date),
-        },
+        OR: [
+          {
+            timestamp_entrada: {
+              gte: startOfDay(date),
+              lte: endOfDay(date),
+            },
+          },
+          {
+            timestamp_entrada: null,
+            created_at: {
+              gte: startOfDay(date),
+              lte: endOfDay(date),
+            },
+          },
+        ],
       },
       include: asistenciaInclude,
-      orderBy: { timestamp_entrada: 'desc' },
+      orderBy: { created_at: 'desc' },
     });
   }
 

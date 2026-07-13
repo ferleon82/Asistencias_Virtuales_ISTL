@@ -30,6 +30,7 @@ client_secret_*.json
 # === Prisma ===
 # Mantener migrations, ignorar generados
 backend/node_modules/
+backend/uploads/
 
 # === Logs ===
 logs/
