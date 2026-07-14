@@ -1,4 +1,4 @@
-﻿-- CreateEnum
+-- CreateEnum
 CREATE TYPE "Rol" AS ENUM ('docente', 'coordinador', 'tics', 'rectorado');
 
 -- CreateEnum
