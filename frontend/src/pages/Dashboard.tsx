@@ -557,8 +557,8 @@ export default function Dashboard() {
     canViewTeacherDay && { key: 'teacher_day', label: 'Mi jornada' },
     canViewInstitutionalAnalytics && { key: 'analytics', label: 'Dashboard' },
     canManageUsers && { key: 'users', label: 'Usuarios' },
-    canConfigureModules && { key: 'settings', label: 'Configuracion' },
-    canManageAcademic && { key: 'academic', label: 'Academico' },
+    canConfigureModules && { key: 'settings', label: 'Configuración' },
+    canManageAcademic && { key: 'academic', label: 'Académico' },
     canManageSchedules && { key: 'schedules', label: 'Horarios' },
     canViewReports && { key: 'reports', label: 'Reportes' },
     canViewSystemStatus && { key: 'system_status', label: 'Estado' },
@@ -689,7 +689,7 @@ export default function Dashboard() {
         </div>
 
         {moduleTabs.length > 0 && (
-          <nav className="mb-6 rounded-lg border border-slate-200 bg-white p-2 shadow-sm" aria-label="Modulos del sistema">
+          <nav className="mb-6 rounded-lg border border-slate-200 bg-white p-2 shadow-sm" aria-label="Módulos del sistema">
             <div className="flex gap-2 overflow-x-auto">
               {moduleTabs.map((tab) => {
                 const isActive = activeModuleTab === tab.key;

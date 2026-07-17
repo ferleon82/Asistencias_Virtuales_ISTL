@@ -99,7 +99,7 @@ export function ModulePermissionsSection({
 
       <div className="mt-4 flex justify-end">
         <button type="button" onClick={() => void savePermissions()} disabled={loading} className="btn-primary">
-          {loading ? 'Guardando...' : 'Guardar configuracion'}
+          {loading ? 'Guardando...' : 'Guardar configuración'}
         </button>
       </div>
     </section>

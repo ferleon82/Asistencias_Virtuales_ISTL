@@ -35,17 +35,17 @@ const systemModules: Array<{ key: string; label: string; roles: Rol[] }> = [
   },
   {
     key: 'users',
-    label: 'GestiÃƒÂ³n de usuarios',
+    label: 'Gestión de usuarios',
     roles: [Rol.tics, Rol.rectorado, Rol.talento_humano],
   },
   {
     key: 'academic',
-    label: 'GestiÃƒÂ³n acadÃƒÂ©mica',
+    label: 'Gestión académica',
     roles: [Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano],
   },
   {
     key: 'schedules',
-    label: 'AdministraciÃƒÂ³n de horarios',
+    label: 'Administración de horarios',
     roles: [Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano],
   },
   {
@@ -60,7 +60,7 @@ const systemModules: Array<{ key: string; label: string; roles: Rol[] }> = [
   },
   {
     key: 'module_permissions',
-    label: 'ConfiguraciÃƒÂ³n de mÃƒÂ³dulos',
+    label: 'Configuración de módulos',
     roles: [Rol.tics],
   },
 ];
@@ -267,7 +267,7 @@ export class AdminService {
 
   async createPeriodoAcademico(data: PeriodoAcademicoInput, user: AuthScope, ip: string) {
     if (!isFullAdmin(user)) {
-      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden crear perÃƒÂ­odos acadÃƒÂ©micos.', 403);
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden crear períodos académicos.', 403);
     }
 
     const periodo = await prisma.periodoAcademico.create({ data });
@@ -277,7 +277,7 @@ export class AdminService {
 
   async updatePeriodoAcademico(id: string, data: Partial<PeriodoAcademicoInput>, user: AuthScope, ip: string) {
     if (!isFullAdmin(user)) {
-      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden actualizar perÃƒÂ­odos acadÃƒÂ©micos.', 403);
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden actualizar períodos académicos.', 403);
     }
 
     const periodo = await prisma.periodoAcademico.update({ where: { id }, data });
@@ -299,7 +299,7 @@ export class AdminService {
 
   async deactivatePeriodoAcademico(id: string, user: AuthScope, ip: string) {
     if (!isFullAdmin(user)) {
-      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden desactivar perÃƒÂ­odos acadÃƒÂ©micos.', 403);
+      throw new AppError('Solo TICs, Rectorado o Talento Humano pueden desactivar períodos académicos.', 403);
     }
 
     const periodo = await prisma.periodoAcademico.update({
@@ -388,7 +388,7 @@ export class AdminService {
 
   async updateModulePermissions(data: ModulePermissionsInput, user: AuthScope, ip: string) {
     if (user.rol !== Rol.tics) {
-      throw new AppError('Solo TICs puede configurar mÃƒÂ³dulos del sistema.', 403);
+      throw new AppError('Solo TICs puede configurar módulos del sistema.', 403);
     }
 
     await this.ensureModulePermissions();
