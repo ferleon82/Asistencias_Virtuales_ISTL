@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/axios';
@@ -109,6 +109,7 @@ export default function Dashboard() {
   }));
   const [editingPeriodoId, setEditingPeriodoId] = useState<string | null>(null);
   const [cameraAction, setCameraAction] = useState<'entrada' | 'salida' | null>(null);
+  const [activeModuleTab, setActiveModuleTab] = useState('');
   const { carreras, materias, docentes, periodosAcademicos, horarios, loadAdminData } = useAdminData({
     canManageSchedules: canLoadReferenceData,
     setAdminError,
@@ -551,6 +552,29 @@ export default function Dashboard() {
     await markAttendance(action);
   };
 
+  const moduleTabs = [
+    canViewTeacherAttendance && { key: 'teacher_attendance', label: 'Marcar asistencia' },
+    canViewTeacherDay && { key: 'teacher_day', label: 'Mi jornada' },
+    canViewInstitutionalAnalytics && { key: 'analytics', label: 'Dashboard' },
+    canManageUsers && { key: 'users', label: 'Usuarios' },
+    canConfigureModules && { key: 'settings', label: 'Configuracion' },
+    canManageAcademic && { key: 'academic', label: 'Academico' },
+    canManageSchedules && { key: 'schedules', label: 'Horarios' },
+    canViewReports && { key: 'reports', label: 'Reportes' },
+    canViewSystemStatus && { key: 'system_status', label: 'Estado' },
+  ].filter(Boolean) as Array<{ key: string; label: string }>;
+
+  useEffect(() => {
+    if (!moduleTabs.length) {
+      setActiveModuleTab('');
+      return;
+    }
+
+    if (!moduleTabs.some((tab) => tab.key === activeModuleTab)) {
+      setActiveModuleTab(moduleTabs[0].key);
+    }
+  }, [activeModuleTab, moduleTabs]);
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -664,10 +688,34 @@ export default function Dashboard() {
           />
         </div>
 
+        {moduleTabs.length > 0 && (
+          <nav className="mb-6 rounded-lg border border-slate-200 bg-white p-2 shadow-sm" aria-label="Modulos del sistema">
+            <div className="flex gap-2 overflow-x-auto">
+              {moduleTabs.map((tab) => {
+                const isActive = activeModuleTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveModuleTab(tab.key)}
+                    className={`whitespace-nowrap rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
+                      isActive
+                        ? 'bg-brand-navy text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-brand-navy'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        )}
+
         {/* Panel de acciones rápidas */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Marcar asistencia */}
-          {canViewTeacherAttendance && (
+          {activeModuleTab === 'teacher_attendance' && canViewTeacherAttendance && (
             <div className="rounded-lg bg-brand-navy p-6 text-white shadow-lg lg:col-span-3 xl:col-span-1">
               <h2 className="font-brand text-xl font-bold mb-1">Marcar asistencia</h2>
               <p className="text-slate-200 text-sm mb-5">
@@ -736,12 +784,12 @@ export default function Dashboard() {
             </div>
           )}
 
-          {canViewSystemStatus && (
+          {activeModuleTab === 'system_status' && canViewSystemStatus && (
             <SystemStatusCard className="lg:col-span-3" />
           )}
         </div>
 
-        {canViewTeacherDay && (
+        {activeModuleTab === 'teacher_day' && canViewTeacherDay && (
           <TeacherDaySection
             estadoAsistencia={estadoAsistencia}
             diaSemanaEcuador={diaSemanaEcuador}
@@ -757,7 +805,7 @@ export default function Dashboard() {
           />
         )}
 
-        {canViewInstitutionalAnalytics && (
+        {activeModuleTab === 'analytics' && canViewInstitutionalAnalytics && (
           <AnalyticsDashboard
             reportSummary={reportSummary}
             reportFrom={reportFrom}
@@ -788,7 +836,7 @@ export default function Dashboard() {
           />
         )}
 
-        {canManageUsers && (
+        {activeModuleTab === 'users' && canManageUsers && (
           <UsersSection
             usuarios={usuarios}
             filteredUsuarios={filteredUsuarios}
@@ -808,7 +856,7 @@ export default function Dashboard() {
           />
         )}
 
-        {canConfigureModules && (
+        {activeModuleTab === 'settings' && canConfigureModules && (
           <>
             <SystemSettingsSection
               settings={systemSettings}
@@ -829,7 +877,7 @@ export default function Dashboard() {
           </>
         )}
 
-        {canManageAcademic && (
+        {activeModuleTab === 'academic' && canManageAcademic && (
           <AcademicSection
             canManageUsers={isFullAdminRole}
             carreras={carreras}
@@ -863,7 +911,7 @@ export default function Dashboard() {
           />
         )}
 
-        {canManageSchedules && (
+        {activeModuleTab === 'schedules' && canManageSchedules && (
           <SchedulesSection
             carreras={carreras}
             materias={materias}
@@ -883,7 +931,7 @@ export default function Dashboard() {
           />
         )}
 
-        {canViewReports && (
+        {activeModuleTab === 'reports' && canViewReports && (
           <ReportsSection
             reportFrom={reportFrom}
             setReportFrom={setReportFrom}
