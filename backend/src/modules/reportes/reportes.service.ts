@@ -169,6 +169,17 @@ function roleHorarioWhere(user: AuthScope): Prisma.HorarioWhereInput {
   return {};
 }
 
+function scopedFilters(filters: ReporteQueryInput, user: AuthScope): ReporteQueryInput {
+  if (user.rol === Rol.docente) {
+    return {
+      ...filters,
+      docente_id: user.id,
+    };
+  }
+
+  return filters;
+}
+
 function filterWhere(filters: ReporteQueryInput, from: Date, to: Date): Prisma.RegistroAsistenciaWhereInput {
   const periodoFilter = filters.periodo_academico_id
     ? {
@@ -579,14 +590,15 @@ function addPresentSession(
 
 export class ReportesService {
   async resumen(filters: ReporteQueryInput, user: AuthScope) {
-    const { from, to } = await resolveRange(filters);
+    const scoped = scopedFilters(filters, user);
+    const { from, to } = await resolveRange(scoped);
     const where: Prisma.RegistroAsistenciaWhereInput = {
-      AND: [roleWhere(user), filterWhere(filters, from, to)],
+      AND: [roleWhere(user), filterWhere(scoped, from, to)],
     };
 
     const registros = await fetchRegistros(where);
     const horariosProgramados = await fetchHorariosProgramados({
-      AND: [roleHorarioWhere(user), filterHorarioWhere(filters, from, to)],
+      AND: [roleHorarioWhere(user), filterHorarioWhere(scoped, from, to)],
     });
 
     const byEstado = registros.reduce<Record<EstadoAsistencia, number>>(

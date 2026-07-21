@@ -35,6 +35,7 @@ interface ReportsSectionProps {
   reportError: string;
   reportLoading: boolean;
   canManageSchedules: boolean;
+  userRole?: string;
   downloadReport: (type: 'pdf' | 'excel') => Promise<void>;
   reviewJustificacion: (id: string, action: 'aprobar' | 'rechazar') => Promise<void>;
 }
@@ -65,9 +66,11 @@ export function ReportsSection({
   reportError,
   reportLoading,
   canManageSchedules,
+  userRole,
   downloadReport,
   reviewJustificacion,
 }: ReportsSectionProps) {
+  const isTeacherReport = userRole === 'docente';
   const previewPageSize = 10;
   const [previewPage, setPreviewPage] = useState(1);
   const previewRecords = reportSummary?.registros ?? [];
@@ -95,7 +98,7 @@ export function ReportsSection({
             Consulte el resumen del periodo y descargue reportes en PDF o Excel.
           </p>
         </div>
-        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-8">
+        <div className={`grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 ${isTeacherReport ? '2xl:grid-cols-6' : '2xl:grid-cols-8'}`}>
           <label className="min-w-0 text-sm text-slate-600">
             Desde
             <input
@@ -129,19 +132,21 @@ export function ReportsSection({
               ))}
             </select>
           </label>
-          <label className="min-w-0 text-sm text-slate-600">
-            Carrera
-            <select
-              value={reportCarreraId}
-              onChange={(event) => setReportCarreraId(event.target.value)}
-              className="input-control"
-            >
-              <option value="">Todas</option>
-              {carreras.map((carrera) => (
-                <option key={carrera.id} value={carrera.id}>{carrera.codigo}</option>
-              ))}
-            </select>
-          </label>
+          {!isTeacherReport && (
+            <label className="min-w-0 text-sm text-slate-600">
+              Carrera
+              <select
+                value={reportCarreraId}
+                onChange={(event) => setReportCarreraId(event.target.value)}
+                className="input-control"
+              >
+                <option value="">Todas</option>
+                {carreras.map((carrera) => (
+                  <option key={carrera.id} value={carrera.id}>{carrera.codigo}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="min-w-0 text-sm text-slate-600">
             Materia
             <select
@@ -155,19 +160,21 @@ export function ReportsSection({
               ))}
             </select>
           </label>
-          <label className="min-w-0 text-sm text-slate-600">
-            Docente
-            <select
-              value={reportDocenteId}
-              onChange={(event) => setReportDocenteId(event.target.value)}
-              className="input-control"
-            >
-              <option value="">Todos</option>
-              {docentes.map((docente) => (
-                <option key={docente.id} value={docente.id}>{docente.apellido} {docente.nombre}</option>
-              ))}
-            </select>
-          </label>
+          {!isTeacherReport && (
+            <label className="min-w-0 text-sm text-slate-600">
+              Docente
+              <select
+                value={reportDocenteId}
+                onChange={(event) => setReportDocenteId(event.target.value)}
+                className="input-control"
+              >
+                <option value="">Todos</option>
+                {docentes.map((docente) => (
+                  <option key={docente.id} value={docente.id}>{docente.apellido} {docente.nombre}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="min-w-0 text-sm text-slate-600">
             Estado
             <select
@@ -194,7 +201,7 @@ export function ReportsSection({
               ))}
             </select>
           </label>
-          <div className="grid grid-cols-2 gap-3 sm:col-span-2 lg:col-span-3 2xl:col-span-8 2xl:flex 2xl:justify-end">
+          <div className={`grid grid-cols-2 gap-3 sm:col-span-2 lg:col-span-3 ${isTeacherReport ? '2xl:col-span-6' : '2xl:col-span-8'} 2xl:flex 2xl:justify-end`}>
             <button
               type="button"
               onClick={() => void downloadReport('pdf')}

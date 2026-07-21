@@ -958,6 +958,7 @@ export default function Dashboard() {
             reportError={reportError}
             reportLoading={reportLoading}
             canManageSchedules={canManageSchedules || canManageAcademic}
+            userRole={user?.rol}
             downloadReport={downloadReport}
             reviewJustificacion={reviewJustificacion}
           />
