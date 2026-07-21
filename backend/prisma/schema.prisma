@@ -62,7 +62,7 @@ model User {
   email         String    @unique
   nombre        String
   apellido      String
-  cedula        String    @unique
+  cedula        String
   password_hash String
   rol           Rol       @default(docente)
   telefono      String?
@@ -82,6 +82,7 @@ model User {
   refresh_tokens       RefreshToken[]
 
   @@index([email])
+  @@index([cedula])
   @@index([rol])
   @@map("users")
 }
