@@ -10,6 +10,14 @@ interface AuthScope {
 
 const horarioInclude = {
   periodo_academico: true,
+  docente: {
+    select: {
+      id: true,
+      nombre: true,
+      apellido: true,
+      email: true,
+    },
+  },
   materia: {
     select: {
       id: true,
@@ -38,7 +46,7 @@ const horarioInclude = {
 
 function buildRoleWhere(user: AuthScope): Prisma.HorarioWhereInput {
   if (user.rol === Rol.docente) {
-    return { materia: { docente_id: user.id } };
+    return { docente_id: user.id };
   }
 
   if (user.rol === Rol.coordinador) {
@@ -54,10 +62,11 @@ function buildFilterWhere(filters: HorarioQueryInput): Prisma.HorarioWhereInput 
     periodo_academico_id: filters.periodo_academico_id,
     dia_semana: filters.dia_semana,
     ciclo: filters.ciclo,
+    jornada: filters.jornada,
     modalidad: filters.modalidad,
     activo: filters.activo,
+    docente_id: filters.docente_id,
     materia: {
-      docente_id: filters.docente_id,
       carrera_id: filters.carrera_id,
     },
   };
@@ -103,6 +112,7 @@ export class HorariosService {
 
   async create(data: CreateHorarioInput, user: AuthScope, ip: string) {
     await this.assertMateriaManageable(data.materia_id, user);
+    await this.assertDocenteManageable(data.docente_id, user);
     const normalizedData = await this.normalizePeriodo(data);
     await this.assertNoOverlap(normalizedData);
 
@@ -119,19 +129,30 @@ export class HorariosService {
   async update(id: string, data: UpdateHorarioInput, user: AuthScope, ip: string) {
     const current = await this.getManageableHorario(id, user);
     const nextMateriaId = data.materia_id ?? current.materia_id;
+    const nextDocenteId = data.docente_id ?? current.docente_id;
 
     if (data.materia_id) {
       await this.assertMateriaManageable(data.materia_id, user);
     }
 
+    if (!nextDocenteId) {
+      throw new AppError('Docente requerido para el horario.', 400);
+    }
+
+    if (data.docente_id) {
+      await this.assertDocenteManageable(data.docente_id, user);
+    }
+
     await this.assertNoOverlap(
       await this.normalizePeriodo({
         materia_id: nextMateriaId,
+        docente_id: nextDocenteId,
         periodo_academico_id: data.periodo_academico_id ?? current.periodo_academico_id ?? undefined,
         dia_semana: data.dia_semana ?? current.dia_semana,
         hora_inicio: data.hora_inicio ?? current.hora_inicio,
         hora_fin: data.hora_fin ?? current.hora_fin,
         ciclo: data.ciclo ?? current.ciclo,
+        jornada: data.jornada ?? current.jornada,
         modalidad: data.modalidad ?? current.modalidad,
         url_aula_virtual: data.url_aula_virtual ?? current.url_aula_virtual ?? undefined,
         activo: data.activo ?? current.activo,
@@ -204,14 +225,27 @@ export class HorariosService {
       throw new AppError('No puede gestionar horarios de una carrera no coordinada.', 403);
     }
   }
+  private async assertDocenteManageable(docenteId: string, user: AuthScope): Promise<void> {
+    const docente = await prisma.user.findUnique({
+      where: { id: docenteId },
+      select: { id: true, rol: true, activo: true },
+    });
 
+    if (!docente || !docente.activo || docente.rol !== Rol.docente) {
+      throw new AppError('Docente no encontrado o inactivo.', 404);
+    }
+
+    if (user.rol === Rol.docente && docente.id !== user.id) {
+      throw new AppError('No puede gestionar horarios de otro docente.', 403);
+    }
+  }
   private async assertNoOverlap(data: CreateHorarioInput, excludeId?: string): Promise<void> {
     if (!data.activo) return;
 
     const existing = await prisma.horario.findMany({
       where: {
         id: excludeId ? { not: excludeId } : undefined,
-        materia_id: data.materia_id,
+        docente_id: data.docente_id,
         periodo_academico_id: data.periodo_academico_id ?? undefined,
         dia_semana: data.dia_semana,
         ciclo: data.periodo_academico_id ? undefined : data.ciclo,
@@ -228,7 +262,7 @@ export class HorariosService {
     );
 
     if (hasOverlap) {
-      throw new AppError('Ya existe un horario activo que se cruza para esta materia, dia y ciclo.', 409);
+      throw new AppError('Ya existe un horario activo que se cruza para este docente, día y ciclo.', 409);
     }
   }
 

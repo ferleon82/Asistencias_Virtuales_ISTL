@@ -354,8 +354,8 @@ export class AsistenciasService {
         activo: true,
         fecha_inicio_ciclo: { lte: now },
         fecha_fin_ciclo: { gte: now },
+        docente_id: user.id,
         materia: {
-          docente_id: user.id,
           activa: true,
         },
       },
@@ -463,8 +463,8 @@ export class AsistenciasService {
         activo: true,
         fecha_inicio_ciclo: { lte: now },
         fecha_fin_ciclo: { gte: now },
+        docente_id: docenteId,
         materia: {
-          docente_id: docenteId,
           activa: true,
         },
       },

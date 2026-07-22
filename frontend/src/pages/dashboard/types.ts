@@ -4,6 +4,7 @@ export interface EstadoAsistenciaActual {
     hora_inicio: string;
     hora_fin: string;
     modalidad?: string;
+    jornada?: string;
     url_aula_virtual?: string | null;
     materia: {
       nombre: string;
@@ -151,6 +152,14 @@ export interface HorarioItem {
   ciclo: string;
   periodo_academico_id?: string | null;
   periodo_academico?: PeriodoAcademicoOption | null;
+  docente_id?: string | null;
+  docente?: {
+    id: string;
+    nombre: string;
+    apellido: string;
+    email?: string;
+  } | null;
+  jornada: string;
   modalidad: string;
   url_aula_virtual?: string | null;
   activo: boolean;
@@ -165,6 +174,7 @@ export interface HorarioItem {
       codigo: string;
     };
     docente?: {
+      id?: string;
       nombre: string;
       apellido: string;
     } | null;
@@ -173,17 +183,18 @@ export interface HorarioItem {
 
 export interface HorarioForm {
   materia_id: string;
+  docente_id: string;
   periodo_academico_id: string;
   dia_semana: string;
   hora_inicio: string;
   hora_fin: string;
   ciclo: string;
+  jornada: string;
   modalidad: string;
   fecha_inicio_ciclo: string;
   fecha_fin_ciclo: string;
   url_aula_virtual: string;
 }
-
 export interface UsuarioItem {
   id: string;
   email: string;

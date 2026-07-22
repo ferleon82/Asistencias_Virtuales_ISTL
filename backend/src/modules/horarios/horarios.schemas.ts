@@ -1,4 +1,4 @@
-import { DiaSemana, Modalidad } from '@prisma/client';
+import { DiaSemana, Jornada, Modalidad } from '@prisma/client';
 import { z } from 'zod';
 
 const timeSchema = z
@@ -15,6 +15,7 @@ export const horarioQuerySchema = z.object({
   materia_id: z.string().uuid().optional(),
   periodo_academico_id: z.string().uuid().optional(),
   docente_id: z.string().uuid().optional(),
+  jornada: z.nativeEnum(Jornada).optional(),
   carrera_id: z.string().uuid().optional(),
   dia_semana: z.nativeEnum(DiaSemana).optional(),
   ciclo: z.string().trim().min(1).optional(),
@@ -24,11 +25,13 @@ export const horarioQuerySchema = z.object({
 
 const horarioBaseSchema = z.object({
   materia_id: z.string().uuid('Materia requerida'),
+  docente_id: z.string().uuid('Docente requerido'),
   periodo_academico_id: z.string().uuid('Período académico inválido').optional(),
   dia_semana: z.nativeEnum(DiaSemana),
   hora_inicio: timeSchema,
   hora_fin: timeSchema,
   ciclo: z.string().trim().min(1, 'Ciclo requerido').max(30),
+  jornada: z.nativeEnum(Jornada).default(Jornada.matutina),
   modalidad: z.nativeEnum(Modalidad).default(Modalidad.virtual),
   url_aula_virtual: z.string().url('URL de aula virtual invalida').optional(),
   activo: z.boolean().default(true),

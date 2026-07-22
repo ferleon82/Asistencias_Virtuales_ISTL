@@ -66,6 +66,7 @@ export function useAdminData({
       setHorarioForm((current) => ({
         ...current,
         materia_id: current.materia_id || materiasData[0]?.id || '',
+        docente_id: current.docente_id || docentesData[0]?.id || '',
         periodo_academico_id: current.periodo_academico_id || periodosData.find((periodo) => periodo.activo)?.id || '',
       }));
       setMateriaForm((current) => ({

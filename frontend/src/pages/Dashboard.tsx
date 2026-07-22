@@ -69,11 +69,13 @@ export default function Dashboard() {
   const [adminLoading, setAdminLoading] = useState(false);
   const [horarioForm, setHorarioForm] = useState<HorarioForm>(() => ({
     materia_id: '',
+    docente_id: '',
     periodo_academico_id: '',
     dia_semana: 'lunes',
     hora_inicio: '08:00',
     hora_fin: '10:00',
     ciclo: '2026-I',
+    jornada: 'matutina',
     modalidad: 'virtual',
     fecha_inicio_ciclo: new Date().toISOString().slice(0, 10),
     fecha_fin_ciclo: new Date(new Date().setMonth(new Date().getMonth() + 5)).toISOString().slice(0, 10),
@@ -246,11 +248,13 @@ export default function Dashboard() {
     setAdminError('');
     setHorarioForm({
       materia_id: horario.materia_id,
+      docente_id: horario.docente_id ?? horario.materia.docente?.id ?? '',
       periodo_academico_id: horario.periodo_academico_id ?? '',
       dia_semana: horario.dia_semana,
       hora_inicio: horario.hora_inicio,
       hora_fin: horario.hora_fin,
       ciclo: horario.ciclo,
+      jornada: horario.jornada ?? 'matutina',
       modalidad: horario.modalidad,
       fecha_inicio_ciclo: horario.fecha_inicio_ciclo.slice(0, 10),
       fecha_fin_ciclo: horario.fecha_fin_ciclo.slice(0, 10),
@@ -263,11 +267,13 @@ export default function Dashboard() {
     setHorarioForm((current) => ({
       ...current,
       materia_id: materias[0]?.id || current.materia_id,
+      docente_id: docentes[0]?.id || current.docente_id,
       periodo_academico_id: periodosAcademicos.find((periodo) => periodo.activo)?.id || current.periodo_academico_id,
       dia_semana: 'lunes',
       hora_inicio: '08:00',
       hora_fin: '10:00',
       ciclo: '2026-I',
+      jornada: 'matutina',
       modalidad: 'virtual',
       fecha_inicio_ciclo: new Date().toISOString().slice(0, 10),
       fecha_fin_ciclo: new Date(new Date().setMonth(new Date().getMonth() + 5)).toISOString().slice(0, 10),

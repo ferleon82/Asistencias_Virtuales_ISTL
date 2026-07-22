@@ -3,10 +3,12 @@ import { createHorarioSchema, horarioQuerySchema, updateHorarioSchema } from './
 
 const validHorario = {
   materia_id: '11111111-1111-4111-8111-111111111111',
+  docente_id: '22222222-2222-4222-8222-222222222222',
   dia_semana: 'lunes',
   hora_inicio: '08:00',
   hora_fin: '10:00',
   ciclo: '2026-I',
+  jornada: 'matutina',
   modalidad: 'virtual',
   fecha_inicio_ciclo: '2026-04-01',
   fecha_fin_ciclo: '2026-09-30',

@@ -159,7 +159,7 @@ function roleWhere(user: AuthScope): Prisma.RegistroAsistenciaWhereInput {
 
 function roleHorarioWhere(user: AuthScope): Prisma.HorarioWhereInput {
   if (user.rol === Rol.docente) {
-    return { materia: { docente_id: user.id } };
+    return { docente_id: user.id };
   }
 
   if (user.rol === Rol.coordinador) {
@@ -228,9 +228,9 @@ function filterHorarioWhere(filters: ReporteQueryInput, from: Date, to: Date): P
     activo: true,
     fecha_inicio_ciclo: { lte: to },
     fecha_fin_ciclo: { gte: from },
+    docente_id: filters.docente_id,
     materia: {
       id: filters.materia_id,
-      docente_id: filters.docente_id,
       carrera_id: filters.carrera_id,
     },
   };

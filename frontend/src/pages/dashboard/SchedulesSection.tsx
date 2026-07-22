@@ -109,6 +109,21 @@ export function SchedulesSection({
               ))}
           </select>
         </label>
+        <label className="text-sm text-slate-600 md:col-span-2">
+          Docente
+          <select
+            value={horarioForm.docente_id}
+            onChange={(event) => setHorarioForm((current) => ({ ...current, docente_id: event.target.value }))}
+            className="input-control"
+          >
+            <option value="">Seleccione un docente</option>
+            {docentes.map((docente) => (
+              <option key={docente.id} value={docente.id}>
+                {docente.apellido} {docente.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="text-sm text-slate-600">
           Día
           <select
@@ -123,6 +138,22 @@ export function SchedulesSection({
               ['jueves', 'jueves'],
               ['viernes', 'viernes'],
               ['sabado', 'sábado'],
+            ].map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm text-slate-600">
+          Jornada
+          <select
+            value={horarioForm.jornada}
+            onChange={(event) => setHorarioForm((current) => ({ ...current, jornada: event.target.value }))}
+            className="input-control"
+          >
+            {[
+              ['matutina', 'Matutina'],
+              ['vespertina', 'Vespertina'],
+              ['nocturna', 'Nocturna'],
             ].map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
@@ -203,7 +234,7 @@ export function SchedulesSection({
         <button
           type="button"
           onClick={() => void createHorario()}
-          disabled={adminLoading || !horarioForm.materia_id}
+          disabled={adminLoading || !horarioForm.materia_id || !horarioForm.docente_id}
           className="btn-primary self-end"
         >
           {adminLoading ? 'Guardando...' : editingHorarioId ? 'Actualizar horario' : 'Crear horario'}
@@ -225,8 +256,10 @@ export function SchedulesSection({
             <tr className="text-left text-xs uppercase text-slate-500">
               <th className="py-2 pr-4">Materia</th>
               <th className="py-2 pr-4">Carrera</th>
+              <th className="py-2 pr-4">Docente</th>
               <th className="py-2 pr-4">Día</th>
               <th className="py-2 pr-4">Hora</th>
+              <th className="py-2 pr-4">Jornada</th>
               <th className="py-2 pr-4">Ciclo</th>
               <th className="py-2 pr-4">Periodo</th>
               <th className="py-2 pr-4">Estado</th>
@@ -238,8 +271,10 @@ export function SchedulesSection({
               <tr key={horario.id}>
                 <td className="py-2 pr-4 text-slate-700">{horario.materia.nombre}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.materia.carrera.codigo}</td>
+                <td className="py-2 pr-4 text-slate-500">{horario.docente ? `${horario.docente.apellido} ${horario.docente.nombre}` : '-'}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.dia_semana}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.hora_inicio} - {horario.hora_fin}</td>
+                <td className="py-2 pr-4 text-slate-500 capitalize">{horario.jornada}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.ciclo}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.periodo_academico?.nombre ?? '-'}</td>
                 <td className="py-2 pr-4">
@@ -272,7 +307,7 @@ export function SchedulesSection({
             ))}
             {horarios.length === 0 && (
               <tr>
-                <td className="py-4 text-slate-500" colSpan={8}>No hay horarios registrados.</td>
+                <td className="py-4 text-slate-500" colSpan={10}>No hay horarios registrados.</td>
               </tr>
             )}
           </tbody>
