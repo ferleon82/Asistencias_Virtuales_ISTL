@@ -54,7 +54,7 @@ export function useAdminData({
 
       const carrerasData = carrerasResponse.data.data as CarreraOption[];
       const materiasData = materiasResponse.data.data as MateriaOption[];
-      const docentesData = docentesResponse.data.data as DocenteOption[];
+      const docentesData = (docentesResponse.data.data as DocenteOption[]).filter((docente) => docente.rol === 'docente');
       const periodosData = periodosResponse.data.data as PeriodoAcademicoOption[];
 
       setCarreras(carrerasData);

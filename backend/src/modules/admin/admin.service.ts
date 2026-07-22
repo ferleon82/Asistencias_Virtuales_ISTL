@@ -312,6 +312,9 @@ export class AdminService {
 
   async createMateria(data: MateriaInput, user: AuthScope, ip: string) {
     await this.assertCanManageCarrera(data.carrera_id, user);
+    if (data.docente_id) {
+      await this.assertDocenteActivo(data.docente_id);
+    }
     await this.assertMateriaCapacity(data.carrera_id, data.ciclo);
     const materia = await prisma.materia.create({ data });
     await this.audit(user.id, 'CREATE_MATERIA', 'materias', materia.id, ip, data);
@@ -323,6 +326,9 @@ export class AdminService {
     if (!current) throw new AppError('Materia no encontrada.', 404);
 
     await this.assertCanManageCarrera(data.carrera_id ?? current.carrera_id, user);
+    if (data.docente_id) {
+      await this.assertDocenteActivo(data.docente_id);
+    }
     await this.assertMateriaCapacity(data.carrera_id ?? current.carrera_id, data.ciclo ?? current.ciclo, id);
 
     const materia = await prisma.materia.update({ where: { id }, data });
@@ -355,7 +361,7 @@ export class AdminService {
   async listDocentes() {
     return prisma.user.findMany({
       where: {
-        rol: { in: [Rol.docente, Rol.coordinador] },
+        rol: Rol.docente,
         activo: true,
       },
       select: {
@@ -497,6 +503,17 @@ export class AdminService {
 
     if (!carrera) {
       throw new AppError('No puede gestionar materias de una carrera no coordinada.', 403);
+    }
+  }
+
+  private async assertDocenteActivo(docenteId: string): Promise<void> {
+    const docente = await prisma.user.findUnique({
+      where: { id: docenteId },
+      select: { rol: true, activo: true },
+    });
+
+    if (!docente || !docente.activo || docente.rol !== Rol.docente) {
+      throw new AppError('Seleccione un usuario con rol Docente activo.', 400);
     }
   }
 
