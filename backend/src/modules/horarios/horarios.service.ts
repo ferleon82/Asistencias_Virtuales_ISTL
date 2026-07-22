@@ -23,6 +23,7 @@ const horarioInclude = {
       id: true,
       nombre: true,
       codigo: true,
+      ciclo: true,
       docente_id: true,
       docente: {
         select: {

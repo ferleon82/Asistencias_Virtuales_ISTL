@@ -32,6 +32,15 @@ import type {
   PeriodoAcademicoOption,
 } from './dashboard/types';
 
+function buildInternalPeriodCode(nombre: string): string {
+  return nombre
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase();
+}
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -383,7 +392,7 @@ export default function Dashboard() {
     try {
       const payload = {
         ...periodoForm,
-        codigo: periodoForm.codigo.toUpperCase(),
+        codigo: buildInternalPeriodCode(periodoForm.nombre),
       };
       const { data } = editingPeriodoId
         ? await api.put(`/admin/periodos-academicos/${editingPeriodoId}`, payload)

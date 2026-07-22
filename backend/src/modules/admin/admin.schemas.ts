@@ -24,7 +24,7 @@ export const materiaSchema = z.object({
   codigo: z.string().trim().min(2, 'Código requerido').max(30).toUpperCase(),
   carrera_id: z.string().uuid('Carrera requerida'),
   docente_id: z.string().uuid().nullable().optional(),
-  ciclo: z.coerce.number().int().min(1, 'Ciclo requerido').max(4, 'El ciclo debe estar entre 1 y 4'),
+  ciclo: z.coerce.number().int().min(1, 'Ciclo requerido').max(5, 'El ciclo debe estar entre 1 y 5'),
   creditos: z.coerce.number().int().min(1).max(12).default(3),
   activa: z.boolean().default(true),
 });

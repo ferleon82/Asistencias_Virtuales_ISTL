@@ -116,23 +116,17 @@ export function AcademicSection({
         {canManageUsers && (
           <div className="rounded-md border border-slate-200 p-4">
             <h3 className="font-brand text-lg font-bold text-brand-navy">Períodos académicos</h3>
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
               <label className="text-sm text-slate-600">
                 Nombre
                 <input
                   value={periodoForm.nombre}
+                  placeholder="2026-1P"
                   onChange={(event) => setPeriodoForm((current) => ({ ...current, nombre: event.target.value }))}
                   className="input-control"
                 />
               </label>
-              <label className="text-sm text-slate-600">
-                Código
-                <input
-                  value={periodoForm.codigo}
-                  onChange={(event) => setPeriodoForm((current) => ({ ...current, codigo: event.target.value }))}
-                  className="input-control uppercase"
-                />
-              </label>
+
               <label className="text-sm text-slate-600">
                 Inicio
                 <input
@@ -163,7 +157,7 @@ export function AcademicSection({
               <button
                 type="button"
                 onClick={() => void savePeriodoAcademico()}
-                disabled={academicLoading}
+                disabled={academicLoading || !periodoForm.nombre.trim()}
                 className="btn-primary self-end"
               >
                 {academicLoading ? 'Guardando...' : editingPeriodoId ? 'Actualizar periodo' : 'Crear periodo'}
@@ -179,7 +173,7 @@ export function AcademicSection({
               {periodosAcademicos.map((periodo) => (
                 <div key={periodo.id} className="grid gap-3 rounded-md bg-slate-50 px-3 py-3 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-700">{periodo.codigo} - {periodo.nombre}</p>
+                    <p className="text-sm font-medium text-slate-700">{periodo.nombre}</p>
                     <p className="text-xs text-slate-500">
                       {periodo.fecha_inicio.slice(0, 10)} a {periodo.fecha_fin.slice(0, 10)}
                     </p>
@@ -317,7 +311,7 @@ export function AcademicSection({
             <h3 className="font-brand text-lg font-bold text-brand-navy">Materias</h3>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             <label className="text-sm text-slate-600">
               Nombre
               <input
@@ -372,7 +366,7 @@ export function AcademicSection({
                 }
                 className="input-control"
               >
-                {[1, 2, 3, 4].map((ciclo) => (
+                {[1, 2, 3, 4, 5].map((ciclo) => (
                   <option key={ciclo} value={ciclo}>
                     Ciclo {ciclo}
                   </option>
@@ -392,7 +386,7 @@ export function AcademicSection({
             <button
               type="button"
               onClick={() => void saveMateria()}
-              disabled={academicLoading || !materiaForm.carrera_id || (!editingMateriaId && materiasEnFormulario >= 5)}
+              disabled={academicLoading || !materiaForm.carrera_id || (!editingMateriaId && materiasEnFormulario >= 7)}
               className="btn-primary self-end"
             >
               {academicLoading ? 'Guardando...' : editingMateriaId ? 'Actualizar materia' : 'Crear materia'}
@@ -407,9 +401,9 @@ export function AcademicSection({
               </button>
             )}
           </div>
-          {materiasEnFormulario >= 5 && !editingMateriaId && (
+          {materiasEnFormulario >= 7 && !editingMateriaId && (
             <p className="mt-2 text-xs text-amber-700">
-              Esta carrera ya tiene 5 materias activas en el ciclo {materiaForm.ciclo}.
+              Esta carrera ya tiene 7 materias activas en el ciclo {materiaForm.ciclo}.
             </p>
           )}
 

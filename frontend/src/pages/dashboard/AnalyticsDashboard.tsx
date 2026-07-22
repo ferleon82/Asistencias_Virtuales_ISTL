@@ -199,7 +199,7 @@ export function AnalyticsDashboard({
             <select value={reportPeriodoAcademicoId} onChange={(event) => setReportPeriodoAcademicoId(event.target.value)} className="input-control">
               <option value="">Todos</option>
               {periodosAcademicos.map((periodo) => (
-                <option key={periodo.id} value={periodo.id}>{periodo.codigo}</option>
+                <option key={periodo.id} value={periodo.id}>{periodo.nombre}</option>
               ))}
             </select>
           </label>

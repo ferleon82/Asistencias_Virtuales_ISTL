@@ -104,7 +104,7 @@ export function SchedulesSection({
               .filter((periodo) => periodo.activo)
               .map((periodo) => (
                 <option key={periodo.id} value={periodo.id}>
-                  {periodo.codigo} - {periodo.nombre}
+                  {periodo.nombre}
                 </option>
               ))}
           </select>
@@ -267,7 +267,7 @@ export function SchedulesSection({
                 <td className="py-2 pr-4 text-slate-500">{horario.dia_semana}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.hora_inicio} - {horario.hora_fin}</td>
                 <td className="py-2 pr-4 text-slate-500 capitalize">{horario.jornada}</td>
-                <td className="py-2 pr-4 text-slate-500">{horario.ciclo}</td>
+                <td className="py-2 pr-4 text-slate-500">{horario.materia.ciclo}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.periodo_academico?.nombre ?? '-'}</td>
                 <td className="py-2 pr-4">
                   <span className={`rounded-full px-2 py-0.5 text-xs ${horario.activo ? 'bg-teal-50 text-istl-700' : 'bg-slate-100 text-slate-500'}`}>

@@ -127,7 +127,7 @@ export function ReportsSection({
               <option value="">Todos</option>
               {periodosAcademicos.map((periodo) => (
                 <option key={periodo.id} value={periodo.id}>
-                  {periodo.codigo}
+                  {periodo.nombre}
                 </option>
               ))}
             </select>

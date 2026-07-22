@@ -169,6 +169,7 @@ export interface HorarioItem {
   materia: {
     nombre: string;
     codigo: string;
+    ciclo: number;
     carrera: {
       nombre: string;
       codigo: string;

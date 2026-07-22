@@ -510,8 +510,8 @@ export class AdminService {
       },
     });
 
-    if (total >= 5) {
-      throw new AppError('Ya existen 5 materias activas para esta carrera y ciclo.', 409);
+    if (total >= 7) {
+      throw new AppError('Ya existen 7 materias activas para esta carrera y ciclo.', 409);
     }
   }
 
