@@ -63,12 +63,21 @@ export function useAdminData({
       setPeriodosAcademicos(periodosData);
       setHorarios(horariosResponse.data.data);
 
-      setHorarioForm((current) => ({
-        ...current,
-        materia_id: current.materia_id || materiasData[0]?.id || '',
-        docente_id: current.docente_id || docentesData[0]?.id || '',
-        periodo_academico_id: current.periodo_academico_id || periodosData.find((periodo) => periodo.activo)?.id || '',
-      }));
+      setHorarioForm((current) => {
+        const selectedPeriodo =
+          periodosData.find((periodo) => periodo.id === current.periodo_academico_id) ??
+          periodosData.find((periodo) => periodo.activo);
+
+        return {
+          ...current,
+          materia_id: current.materia_id || materiasData[0]?.id || '',
+          docente_id: current.docente_id || docentesData[0]?.id || '',
+          periodo_academico_id: current.periodo_academico_id || selectedPeriodo?.id || '',
+          ciclo: selectedPeriodo?.codigo ?? current.ciclo,
+          fecha_inicio_ciclo: selectedPeriodo?.fecha_inicio.slice(0, 10) ?? current.fecha_inicio_ciclo,
+          fecha_fin_ciclo: selectedPeriodo?.fecha_fin.slice(0, 10) ?? current.fecha_fin_ciclo,
+        };
+      });
       setMateriaForm((current) => ({
         ...current,
         carrera_id: current.carrera_id || carrerasData[0]?.id || '',

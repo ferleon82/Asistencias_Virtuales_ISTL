@@ -379,19 +379,7 @@ export function AcademicSection({
                 ))}
               </select>
             </label>
-            <label className="text-sm text-slate-600">
-              Créditos
-              <input
-                type="number"
-                min={1}
-                max={12}
-                value={materiaForm.creditos}
-                onChange={(event) =>
-                  setMateriaForm((current) => ({ ...current, creditos: Number(event.target.value) }))
-                }
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-teal"
-              />
-            </label>
+
             <label className="flex items-center gap-2 self-end rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-600">
               <input
                 type="checkbox"

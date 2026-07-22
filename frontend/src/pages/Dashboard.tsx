@@ -263,20 +263,22 @@ export default function Dashboard() {
   };
 
   const cancelHorarioEdit = () => {
+    const activePeriodo = periodosAcademicos.find((periodo) => periodo.activo);
+
     setEditingHorarioId(null);
     setHorarioForm((current) => ({
       ...current,
       materia_id: materias[0]?.id || current.materia_id,
       docente_id: docentes[0]?.id || current.docente_id,
-      periodo_academico_id: periodosAcademicos.find((periodo) => periodo.activo)?.id || current.periodo_academico_id,
+      periodo_academico_id: activePeriodo?.id || current.periodo_academico_id,
       dia_semana: 'lunes',
       hora_inicio: '08:00',
       hora_fin: '10:00',
-      ciclo: '2026-I',
+      ciclo: activePeriodo?.codigo ?? current.ciclo,
       jornada: 'matutina',
       modalidad: 'virtual',
-      fecha_inicio_ciclo: new Date().toISOString().slice(0, 10),
-      fecha_fin_ciclo: new Date(new Date().setMonth(new Date().getMonth() + 5)).toISOString().slice(0, 10),
+      fecha_inicio_ciclo: activePeriodo?.fecha_inicio.slice(0, 10) ?? current.fecha_inicio_ciclo,
+      fecha_fin_ciclo: activePeriodo?.fecha_fin.slice(0, 10) ?? current.fecha_fin_ciclo,
       url_aula_virtual: '',
     }));
   };

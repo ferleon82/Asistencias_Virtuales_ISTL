@@ -193,15 +193,7 @@ export function SchedulesSection({
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-teal"
           />
         </label>
-        <label className="text-sm text-slate-600">
-          Ciclo
-          <input
-            value={horarioForm.ciclo}
-            onChange={(event) => setHorarioForm((current) => ({ ...current, ciclo: event.target.value }))}
-            readOnly={!!horarioForm.periodo_academico_id}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-teal"
-          />
-        </label>
+
         <label className="text-sm text-slate-600">
           Inicio ciclo
           <input
