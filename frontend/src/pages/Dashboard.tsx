@@ -945,6 +945,7 @@ export default function Dashboard() {
             editHorario={editHorario}
             cancelHorarioEdit={cancelHorarioEdit}
             deactivateHorario={deactivateHorario}
+            userRole={user?.rol}
           />
         )}
 
