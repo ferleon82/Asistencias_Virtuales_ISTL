@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type {
   CarreraOption,
   DocenteOption,
@@ -26,6 +26,50 @@ interface SchedulesSectionProps {
   deactivateHorario: (id: string) => Promise<void>;
 }
 
+type ScheduleFilters = {
+  materia: string;
+  carrera: string;
+  docente: string;
+  dia: string;
+  hora: string;
+  jornada: string;
+  ciclo: string;
+  periodo: string;
+  estado: string;
+};
+
+const pageSize = 10;
+const emptyFilters: ScheduleFilters = {
+  materia: '',
+  carrera: '',
+  docente: '',
+  dia: '',
+  hora: '',
+  jornada: '',
+  ciclo: '',
+  periodo: '',
+  estado: '',
+};
+
+function normalizeText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function containsFilter(value: string, filter: string): boolean {
+  return normalizeText(value).includes(normalizeText(filter.trim()));
+}
+
+function uniqueSorted(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+function docenteName(horario: HorarioItem): string {
+  return horario.docente ? `${horario.docente.apellido} ${horario.docente.nombre}` : '';
+}
+
 export function SchedulesSection({
   carreras,
   materias,
@@ -43,6 +87,61 @@ export function SchedulesSection({
   cancelHorarioEdit,
   deactivateHorario,
 }: SchedulesSectionProps) {
+  const [scheduleFilters, setScheduleFilters] = useState<ScheduleFilters>(emptyFilters);
+  const [schedulePage, setSchedulePage] = useState(1);
+
+  const carreraOptions = useMemo(
+    () => uniqueSorted(horarios.map((horario) => horario.materia.carrera.codigo)),
+    [horarios]
+  );
+  const cicloOptions = useMemo(
+    () => uniqueSorted(horarios.map((horario) => String(horario.materia.ciclo))).sort((a, b) => Number(a) - Number(b)),
+    [horarios]
+  );
+  const periodoOptions = useMemo(
+    () => uniqueSorted(horarios.map((horario) => horario.periodo_academico?.nombre ?? '')),
+    [horarios]
+  );
+
+  const filteredHorarios = useMemo(
+    () =>
+      horarios.filter((horario) => {
+        const hora = `${horario.hora_inicio} - ${horario.hora_fin}`;
+        const estado = horario.activo ? 'activo' : 'inactivo';
+
+        return (
+          containsFilter(horario.materia.nombre, scheduleFilters.materia) &&
+          (!scheduleFilters.carrera || horario.materia.carrera.codigo === scheduleFilters.carrera) &&
+          containsFilter(docenteName(horario), scheduleFilters.docente) &&
+          (!scheduleFilters.dia || horario.dia_semana === scheduleFilters.dia) &&
+          containsFilter(hora, scheduleFilters.hora) &&
+          (!scheduleFilters.jornada || horario.jornada === scheduleFilters.jornada) &&
+          (!scheduleFilters.ciclo || String(horario.materia.ciclo) === scheduleFilters.ciclo) &&
+          (!scheduleFilters.periodo || horario.periodo_academico?.nombre === scheduleFilters.periodo) &&
+          (!scheduleFilters.estado || estado === scheduleFilters.estado)
+        );
+      }),
+    [horarios, scheduleFilters]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredHorarios.length / pageSize));
+  const safePage = Math.min(schedulePage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filteredHorarios.length);
+  const visibleHorarios = filteredHorarios.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setSchedulePage(1);
+  }, [scheduleFilters, horarios.length]);
+
+  useEffect(() => {
+    setSchedulePage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
+
+  const updateFilter = (key: keyof ScheduleFilters, value: string) => {
+    setScheduleFilters((current) => ({ ...current, [key]: value }));
+  };
+
   return (
     <section className="dashboard-section">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -242,28 +341,164 @@ export function SchedulesSection({
         )}
       </div>
 
-      <div className="table-container mt-6">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
+      <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-slate-500">
+          {filteredHorarios.length === 0 ? '0 horarios' : `${startIndex + 1}-${endIndex} de ${filteredHorarios.length} horarios`}
+        </p>
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <button
+            type="button"
+            onClick={() => setScheduleFilters(emptyFilters)}
+            disabled={!Object.values(scheduleFilters).some(Boolean)}
+            className="rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-brand-navy disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Limpiar filtros
+          </button>
+          <button
+            type="button"
+            onClick={() => setSchedulePage((current) => Math.max(1, current - 1))}
+            disabled={safePage === 1 || filteredHorarios.length === 0}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-sm font-semibold text-brand-navy disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Página anterior"
+          >
+            &lt;
+          </button>
+          <span className="min-w-12 text-center text-sm">
+            {safePage}/{totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSchedulePage((current) => Math.min(totalPages, current + 1))}
+            disabled={safePage === totalPages || filteredHorarios.length === 0}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-sm font-semibold text-brand-navy disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Página siguiente"
+          >
+            &gt;
+          </button>
+        </div>
+      </div>
+
+      <div className="table-container mt-3">
+        <table className="min-w-[1180px] divide-y divide-slate-200 text-sm">
           <thead>
-            <tr className="text-left text-xs uppercase text-slate-500">
-              <th className="py-2 pr-4">Materia</th>
-              <th className="py-2 pr-4">Carrera</th>
-              <th className="py-2 pr-4">Docente</th>
-              <th className="py-2 pr-4">Día</th>
-              <th className="py-2 pr-4">Hora</th>
-              <th className="py-2 pr-4">Jornada</th>
-              <th className="py-2 pr-4">Ciclo</th>
-              <th className="py-2 pr-4">Periodo</th>
-              <th className="py-2 pr-4">Estado</th>
+            <tr className="text-left text-xs uppercase text-slate-500 align-top">
+              <th className="py-2 pr-4">
+                Materia
+                <input
+                  value={scheduleFilters.materia}
+                  onChange={(event) => updateFilter('materia', event.target.value)}
+                  className="mt-2 w-full min-w-36 rounded-md border border-slate-200 px-2 py-1 text-xs font-normal normal-case text-slate-700"
+                />
+              </th>
+              <th className="py-2 pr-4">
+                Carrera
+                <select
+                  value={scheduleFilters.carrera}
+                  onChange={(event) => updateFilter('carrera', event.target.value)}
+                  className="mt-2 w-full min-w-24 rounded-md border border-slate-200 px-2 py-1 text-xs font-normal normal-case text-slate-700"
+                >
+                  <option value="">Todas</option>
+                  {carreraOptions.map((carrera) => (
+                    <option key={carrera} value={carrera}>{carrera}</option>
+                  ))}
+                </select>
+              </th>
+              <th className="py-2 pr-4">
+                Docente
+                <input
+                  value={scheduleFilters.docente}
+                  onChange={(event) => updateFilter('docente', event.target.value)}
+                  className="mt-2 w-full min-w-40 rounded-md border border-slate-200 px-2 py-1 text-xs font-normal normal-case text-slate-700"
+                />
+              </th>
+              <th className="py-2 pr-4">
+                Día
+                <select
+                  value={scheduleFilters.dia}
+                  onChange={(event) => updateFilter('dia', event.target.value)}
+                  className="mt-2 w-full min-w-24 rounded-md border border-slate-200 px-2 py-1 text-xs font-normal normal-case text-slate-700"
+                >
+                  <option value="">Todos</option>
+                  {[
+                    ['lunes', 'lunes'],
+                    ['martes', 'martes'],
+                    ['miercoles', 'miércoles'],
+                    ['jueves', 'jueves'],
+                    ['viernes', 'viernes'],
+                    ['sabado', 'sábado'],
+                  ].map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </th>
+              <th className="py-2 pr-4">
+                Hora
+                <input
+                  value={scheduleFilters.hora}
+                  onChange={(event) => updateFilter('hora', event.target.value)}
+                  className="mt-2 w-full min-w-24 rounded-md border border-slate-200 px-2 py-1 text-xs font-normal normal-case text-slate-700"
+                />
+              </th>
+              <th className="py-2 pr-4">
+                Jornada
+                <select
+                  value={scheduleFilters.jornada}
+                  onChange={(event) => updateFilter('jornada', event.target.value)}
+                  className="mt-2 w-full min-w-28 rounded-md border border-slate-200 px-2 py-1 text-xs font-normal normal-case text-slate-700"
+                >
+                  <option value="">Todas</option>
+                  <option value="matutina">Matutina</option>
+                  <option value="vespertina">Vespertina</option>
+                  <option value="nocturna">Nocturna</option>
+                </select>
+              </th>
+              <th className="py-2 pr-4">
+                Ciclo
+                <select
+                  value={scheduleFilters.ciclo}
+                  onChange={(event) => updateFilter('ciclo', event.target.value)}
+                  className="mt-2 w-full min-w-20 rounded-md border border-slate-200 px-2 py-1 text-xs font-normal normal-case text-slate-700"
+                >
+                  <option value="">Todos</option>
+                  {cicloOptions.map((ciclo) => (
+                    <option key={ciclo} value={ciclo}>{ciclo}</option>
+                  ))}
+                </select>
+              </th>
+              <th className="py-2 pr-4">
+                Periodo
+                <select
+                  value={scheduleFilters.periodo}
+                  onChange={(event) => updateFilter('periodo', event.target.value)}
+                  className="mt-2 w-full min-w-28 rounded-md border border-slate-200 px-2 py-1 text-xs font-normal normal-case text-slate-700"
+                >
+                  <option value="">Todos</option>
+                  {periodoOptions.map((periodo) => (
+                    <option key={periodo} value={periodo}>{periodo}</option>
+                  ))}
+                </select>
+              </th>
+              <th className="py-2 pr-4">
+                Estado
+                <select
+                  value={scheduleFilters.estado}
+                  onChange={(event) => updateFilter('estado', event.target.value)}
+                  className="mt-2 w-full min-w-24 rounded-md border border-slate-200 px-2 py-1 text-xs font-normal normal-case text-slate-700"
+                >
+                  <option value="">Todos</option>
+                  <option value="activo">Activo</option>
+                  <option value="inactivo">Inactivo</option>
+                </select>
+              </th>
               <th className="py-2 pr-4">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {horarios.slice(0, 8).map((horario) => (
+            {visibleHorarios.map((horario) => (
               <tr key={horario.id}>
                 <td className="py-2 pr-4 text-slate-700">{horario.materia.nombre}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.materia.carrera.codigo}</td>
-                <td className="py-2 pr-4 text-slate-500">{horario.docente ? `${horario.docente.apellido} ${horario.docente.nombre}` : '-'}</td>
+                <td className="py-2 pr-4 text-slate-500">{docenteName(horario) || '-'}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.dia_semana}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.hora_inicio} - {horario.hora_fin}</td>
                 <td className="py-2 pr-4 text-slate-500 capitalize">{horario.jornada}</td>
@@ -297,9 +532,9 @@ export function SchedulesSection({
                 </td>
               </tr>
             ))}
-            {horarios.length === 0 && (
+            {filteredHorarios.length === 0 && (
               <tr>
-                <td className="py-4 text-slate-500" colSpan={10}>No hay horarios registrados.</td>
+                <td className="py-4 text-slate-500" colSpan={10}>No hay horarios para los filtros seleccionados.</td>
               </tr>
             )}
           </tbody>

@@ -203,10 +203,10 @@ function filterWhere(filters: ReporteQueryInput, from: Date, to: Date): Prisma.R
     },
     horario: {
       ...periodoFilter,
-      ciclo: filters.ciclo,
       materia_id: filters.materia_id,
       materia: {
         carrera_id: filters.carrera_id,
+        ciclo: filters.ciclo,
       },
     },
   };
@@ -224,7 +224,6 @@ function filterHorarioWhere(filters: ReporteQueryInput, from: Date, to: Date): P
 
   return {
     ...periodoFilter,
-    ciclo: filters.ciclo,
     activo: true,
     fecha_inicio_ciclo: { lte: to },
     fecha_fin_ciclo: { gte: from },
@@ -232,6 +231,7 @@ function filterHorarioWhere(filters: ReporteQueryInput, from: Date, to: Date): P
     materia: {
       id: filters.materia_id,
       carrera_id: filters.carrera_id,
+      ciclo: filters.ciclo,
     },
   };
 }
@@ -488,7 +488,7 @@ function toRows(registros: Awaited<ReturnType<typeof fetchRegistros>>): ReportRo
     email: registro.docente.email,
     carrera: registro.horario.materia.carrera.nombre,
     materia: registro.horario.materia.nombre,
-    ciclo: registro.horario.ciclo,
+    ciclo: String(registro.horario.materia.ciclo),
     periodo_academico: registro.horario.periodo_academico?.nombre ?? registro.horario.ciclo,
     dia: registro.horario.dia_semana,
     horario: `${registro.horario.hora_inicio} - ${registro.horario.hora_fin}`,

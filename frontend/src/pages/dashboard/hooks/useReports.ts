@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type SetStateAction } from 'react';
 import api from '../../../lib/axios';
-import type { HorarioItem, MateriaOption, PeriodoAcademicoOption, ReportSummary } from '../types';
+import type { MateriaOption, PeriodoAcademicoOption, ReportSummary } from '../types';
 
 function getApiMessage(error: unknown, fallback: string): string {
   return (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
@@ -12,11 +12,10 @@ function todayIso(): string {
 
 interface UseReportsInput {
   materias: MateriaOption[];
-  horarios: HorarioItem[];
   periodosAcademicos: PeriodoAcademicoOption[];
 }
 
-export function useReports({ materias, horarios, periodosAcademicos }: UseReportsInput) {
+export function useReports({ materias, periodosAcademicos }: UseReportsInput) {
   const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
   const [reportError, setReportError] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
@@ -36,8 +35,11 @@ export function useReports({ materias, horarios, periodosAcademicos }: UseReport
   );
 
   const reportCiclos = useMemo(
-    () => Array.from(new Set(horarios.map((horario) => horario.ciclo))).filter(Boolean),
-    [horarios]
+    () =>
+      Array.from(new Set(reportMaterias.map((materia) => String(materia.ciclo))))
+        .filter(Boolean)
+        .sort((a, b) => Number(a) - Number(b)),
+    [reportMaterias]
   );
 
   const periodoActivo = useMemo(() => {
@@ -140,6 +142,12 @@ export function useReports({ materias, horarios, periodosAcademicos }: UseReport
       setReportMateriaId('');
     }
   }, [reportCarreraId, reportMateriaId, reportMaterias]);
+
+  useEffect(() => {
+    if (reportCiclo && !reportCiclos.includes(reportCiclo)) {
+      setReportCiclo('');
+    }
+  }, [reportCiclo, reportCiclos]);
 
   const reviewJustificacion = async (id: string, action: 'aprobar' | 'rechazar') => {
     setReportLoading(true);

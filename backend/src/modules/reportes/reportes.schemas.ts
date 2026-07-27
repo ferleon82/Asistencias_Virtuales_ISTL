@@ -9,7 +9,7 @@ export const reporteQuerySchema = z
     docente_id: z.string().uuid().optional(),
     fecha_inicio: z.coerce.date().optional(),
     fecha_fin: z.coerce.date().optional(),
-    ciclo: z.string().trim().min(1).optional(),
+    ciclo: z.coerce.number().int().min(1).max(5).optional(),
     estado: z.nativeEnum(EstadoAsistencia).optional(),
   })
   .refine((data) => !data.fecha_inicio || !data.fecha_fin || data.fecha_inicio <= data.fecha_fin, {

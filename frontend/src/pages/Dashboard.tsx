@@ -153,7 +153,7 @@ export default function Dashboard() {
     loadReportSummary,
     reviewJustificacion,
     downloadReport,
-  } = useReports({ materias, horarios, periodosAcademicos });
+  } = useReports({ materias, periodosAcademicos });
   const now = new Date();
   const hora = now.toLocaleTimeString('es-EC', {
     timeZone: 'America/Guayaquil',

@@ -9,7 +9,7 @@ describe('reportes schemas', () => {
       docente_id: '33333333-3333-4333-8333-333333333333',
       fecha_inicio: '2026-05-01',
       fecha_fin: '2026-05-31',
-      ciclo: '2026-I',
+      ciclo: '1',
       estado: 'puntual',
     });
 
