@@ -10,6 +10,13 @@ interface AuthScope {
 
 const horarioInclude = {
   periodo_academico: true,
+  asignacion_docente: {
+    include: {
+      docente: { select: { id: true, nombre: true, apellido: true, email: true } },
+      periodo_academico: true,
+      materia: { select: { id: true, nombre: true, codigo: true, ciclo: true } },
+    },
+  },
   docente: {
     select: {
       id: true,
@@ -115,10 +122,14 @@ export class HorariosService {
     await this.assertMateriaManageable(data.materia_id, user);
     await this.assertDocenteManageable(data.docente_id, user);
     const normalizedData = await this.normalizePeriodo(data);
+    const asignacion = await this.resolveAssignment(normalizedData);
     await this.assertNoOverlap(normalizedData);
 
     const horario = await prisma.horario.create({
-      data: normalizedData,
+      data: {
+        ...normalizedData,
+        asignacion_docente_id: asignacion.id,
+      },
       include: horarioInclude,
     });
 
@@ -131,6 +142,7 @@ export class HorariosService {
     const current = await this.getManageableHorario(id, user);
     const nextMateriaId = data.materia_id ?? current.materia_id;
     const nextDocenteId = data.docente_id ?? current.docente_id;
+    const nextPeriodoId = data.periodo_academico_id ?? current.periodo_academico_id;
 
     if (data.materia_id) {
       await this.assertMateriaManageable(data.materia_id, user);
@@ -139,35 +151,38 @@ export class HorariosService {
     if (!nextDocenteId) {
       throw new AppError('Docente requerido para el horario.', 400);
     }
+    if (!nextPeriodoId) {
+      throw new AppError('Período académico requerido para la asignación docente.', 400);
+    }
 
     if (data.docente_id) {
       await this.assertDocenteManageable(data.docente_id, user);
     }
 
-    await this.assertNoOverlap(
-      await this.normalizePeriodo({
-        materia_id: nextMateriaId,
-        docente_id: nextDocenteId,
-        periodo_academico_id: data.periodo_academico_id ?? current.periodo_academico_id ?? undefined,
-        dia_semana: data.dia_semana ?? current.dia_semana,
-        hora_inicio: data.hora_inicio ?? current.hora_inicio,
-        hora_fin: data.hora_fin ?? current.hora_fin,
-        ciclo: data.ciclo ?? current.ciclo,
-        jornada: data.jornada ?? current.jornada,
-        modalidad: data.modalidad ?? current.modalidad,
-        url_aula_virtual: data.url_aula_virtual ?? current.url_aula_virtual ?? undefined,
-        activo: data.activo ?? current.activo,
-        fecha_inicio_ciclo: data.fecha_inicio_ciclo ?? current.fecha_inicio_ciclo,
-        fecha_fin_ciclo: data.fecha_fin_ciclo ?? current.fecha_fin_ciclo,
-      }),
-      id
-    );
-
-    const normalizedData = await this.normalizePeriodo(data, current);
+    const normalizedData = await this.normalizePeriodo({
+      materia_id: nextMateriaId,
+      docente_id: nextDocenteId,
+      periodo_academico_id: nextPeriodoId,
+      dia_semana: data.dia_semana ?? current.dia_semana,
+      hora_inicio: data.hora_inicio ?? current.hora_inicio,
+      hora_fin: data.hora_fin ?? current.hora_fin,
+      ciclo: data.ciclo ?? current.ciclo,
+      jornada: data.jornada ?? current.jornada,
+      modalidad: data.modalidad ?? current.modalidad,
+      url_aula_virtual: data.url_aula_virtual ?? current.url_aula_virtual ?? undefined,
+      activo: data.activo ?? current.activo,
+      fecha_inicio_ciclo: data.fecha_inicio_ciclo ?? current.fecha_inicio_ciclo,
+      fecha_fin_ciclo: data.fecha_fin_ciclo ?? current.fecha_fin_ciclo,
+    });
+    const asignacion = await this.resolveAssignment(normalizedData);
+    await this.assertNoOverlap(normalizedData, id);
 
     const horario = await prisma.horario.update({
       where: { id },
-      data: normalizedData,
+      data: {
+        ...normalizedData,
+        asignacion_docente_id: asignacion.id,
+      },
       include: horarioInclude,
     });
 
@@ -240,6 +255,26 @@ export class HorariosService {
       throw new AppError('No puede gestionar horarios de otro docente.', 403);
     }
   }
+  private async resolveAssignment(data: CreateHorarioInput) {
+    return prisma.asignacionDocente.upsert({
+      where: {
+        asignacion_docente_unica: {
+          materia_id: data.materia_id,
+          docente_id: data.docente_id,
+          periodo_academico_id: data.periodo_academico_id,
+          jornada: data.jornada,
+        },
+      },
+      create: {
+        materia_id: data.materia_id,
+        docente_id: data.docente_id,
+        periodo_academico_id: data.periodo_academico_id,
+        jornada: data.jornada,
+      },
+      update: { activa: true },
+    });
+  }
+
   private async assertNoOverlap(data: CreateHorarioInput, excludeId?: string): Promise<void> {
     if (!data.activo) return;
 
@@ -263,7 +298,7 @@ export class HorariosService {
     );
 
     if (hasOverlap) {
-      throw new AppError('Ya existe un horario activo que se cruza para este docente, d�a y ciclo.', 409);
+      throw new AppError('Ya existe un horario activo que se cruza para este docente, d�a y ciclo.', 409);
     }
   }
 
@@ -272,7 +307,9 @@ export class HorariosService {
     current?: { periodo_academico_id: string | null; ciclo: string; fecha_inicio_ciclo: Date; fecha_fin_ciclo: Date }
   ): Promise<T> {
     const periodoId = data.periodo_academico_id ?? current?.periodo_academico_id;
-    if (!periodoId) return data;
+    if (!periodoId) {
+      throw new AppError('Período académico requerido para crear la asignación docente.', 400);
+    }
 
     const periodo = await prisma.periodoAcademico.findUnique({
       where: { id: periodoId },

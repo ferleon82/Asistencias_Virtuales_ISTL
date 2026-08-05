@@ -80,9 +80,7 @@ export function useAdminData({
       });
       setMateriaForm((current) => ({
         ...current,
-        carrera_id: current.carrera_id || carrerasData[0]?.id || '',
-        docente_id: current.docente_id,
-        ciclo: current.ciclo || 1,
+        carrera_id: current.carrera_id || carrerasData[0]?.id || '',        ciclo: current.ciclo || 1,
       }));
     } catch (error) {
       setAdminError(getApiMessage(error, 'No se pudo cargar la información administrativa.'));

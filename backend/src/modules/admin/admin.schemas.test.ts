@@ -21,12 +21,11 @@ describe('admin schemas', () => {
     expect(result.success).toBe(true);
   });
 
-  it('valida materia con docente opcional', () => {
+  it('valida una materia sin asignación docente', () => {
     const result = materiaSchema.safeParse({
       nombre: 'Programacion Web',
       codigo: 'pw-101',
       carrera_id: '11111111-1111-4111-8111-111111111111',
-      docente_id: null,
       ciclo: 2,
       creditos: 4,
       activa: true,
@@ -44,7 +43,7 @@ describe('admin schemas', () => {
       nombre: 'Programacion Web',
       codigo: 'pw-101',
       carrera_id: '11111111-1111-4111-8111-111111111111',
-      ciclo: 5,
+      ciclo: 6,
       creditos: 4,
       activa: true,
     });

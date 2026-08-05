@@ -104,9 +104,7 @@ export default function Dashboard() {
   const [materiaForm, setMateriaForm] = useState<MateriaForm>(() => ({
     nombre: '',
     codigo: '',
-    carrera_id: '',
-    docente_id: '',
-    ciclo: 1,
+    carrera_id: '',    ciclo: 1,
     creditos: 3,
     activa: true,
   }));
@@ -475,7 +473,6 @@ export default function Dashboard() {
     try {
       const payload = {
         ...materiaForm,
-        docente_id: materiaForm.docente_id || (editingMateriaId ? null : undefined),
         codigo: materiaForm.codigo.toUpperCase(),
       };
       const { data } = editingMateriaId
@@ -486,9 +483,7 @@ export default function Dashboard() {
       setMateriaForm((current) => ({
         nombre: '',
         codigo: '',
-        carrera_id: current.carrera_id,
-        docente_id: current.docente_id,
-        ciclo: current.ciclo,
+        carrera_id: current.carrera_id,        ciclo: current.ciclo,
         creditos: 3,
         activa: true,
       }));
@@ -511,7 +506,6 @@ export default function Dashboard() {
       nombre: materia.nombre,
       codigo: materia.codigo,
       carrera_id: materia.carrera_id,
-      docente_id: materia.docente_id ?? materia.docente?.id ?? '',
       ciclo: materia.ciclo,
       creditos: materia.creditos ?? 3,
       activa: materia.activa ?? true,
@@ -523,9 +517,7 @@ export default function Dashboard() {
     setMateriaForm((current) => ({
       nombre: '',
       codigo: '',
-      carrera_id: current.carrera_id || carreras[0]?.id || '',
-      docente_id: current.docente_id,
-      ciclo: current.ciclo,
+      carrera_id: current.carrera_id || carreras[0]?.id || '',      ciclo: current.ciclo,
       creditos: 3,
       activa: true,
     }));

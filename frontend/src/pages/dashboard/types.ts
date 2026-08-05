@@ -258,9 +258,7 @@ export interface CarreraForm {
 export interface MateriaForm {
   nombre: string;
   codigo: string;
-  carrera_id: string;
-  docente_id: string;
-  ciclo: number;
+  carrera_id: string;  ciclo: number;
   creditos: number;
   activa: boolean;
 }

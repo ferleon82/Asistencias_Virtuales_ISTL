@@ -26,7 +26,7 @@ export const horarioQuerySchema = z.object({
 const horarioBaseSchema = z.object({
   materia_id: z.string().uuid('Materia requerida'),
   docente_id: z.string().uuid('Docente requerido'),
-  periodo_academico_id: z.string().uuid('Período académico inválido').optional(),
+  periodo_academico_id: z.string().uuid('Período académico requerido'),
   dia_semana: z.nativeEnum(DiaSemana),
   hora_inicio: timeSchema,
   hora_fin: timeSchema,

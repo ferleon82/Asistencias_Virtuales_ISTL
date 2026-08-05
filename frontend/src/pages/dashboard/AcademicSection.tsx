@@ -342,21 +342,7 @@ export function AcademicSection({
                 ))}
               </select>
             </label>
-            <label className="text-sm text-slate-600">
-              Docente
-              <select
-                value={materiaForm.docente_id}
-                onChange={(event) => setMateriaForm((current) => ({ ...current, docente_id: event.target.value }))}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-teal"
-              >
-                <option value="">Sin asignar</option>
-                {docentes.map((docente) => (
-                  <option key={docente.id} value={docente.id}>
-                    {docente.apellido} {docente.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
+
             <label className="text-sm text-slate-600">
               Ciclo
               <select
@@ -413,8 +399,7 @@ export function AcademicSection({
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-700">{materia.codigo} - {materia.nombre}</p>
                   <p className="text-xs text-slate-500">
-                    {materia.carrera?.codigo ?? 'Sin carrera'} - Ciclo {materia.ciclo} -{' '}
-                    {materia.docente ? `${materia.docente.nombre} ${materia.docente.apellido}` : 'Sin docente'}
+                    {materia.carrera?.codigo ?? 'Sin carrera'} - Ciclo {materia.ciclo}
                   </p>
                 </div>
                 <span className={`rounded-full px-2 py-0.5 text-xs ${materia.activa ?? true ? 'bg-teal-50 text-istl-700' : 'bg-slate-100 text-slate-500'}`}>

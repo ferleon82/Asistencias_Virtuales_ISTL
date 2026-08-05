@@ -79,14 +79,15 @@ model User {
   updated_at    DateTime  @updatedAt
 
   // Relaciones
-  carreras_coordinadas Carrera[]            @relation("CoordinadorCarrera")
-  materias_impartidas  Materia[]            @relation("DocenteMateria")
-  registros_asistencia RegistroAsistencia[]
-  clases_recuperacion  ClaseRecuperacion[]
-  notificaciones       NotificacionLog[]
-  horarios_asignados   Horario[]
-  audit_logs           AuditLog[]
-  refresh_tokens       RefreshToken[]
+  carreras_coordinadas  Carrera[]            @relation("CoordinadorCarrera")
+  materias_impartidas   Materia[]            @relation("DocenteMateria")
+  registros_asistencia  RegistroAsistencia[]
+  clases_recuperacion   ClaseRecuperacion[]
+  notificaciones        NotificacionLog[]
+  horarios_asignados    Horario[]
+  asignaciones_docentes AsignacionDocente[]
+  audit_logs            AuditLog[]
+  refresh_tokens        RefreshToken[]
 
   @@index([email])
   @@index([cedula])
@@ -103,7 +104,7 @@ model Carrera {
 
   created_at DateTime @default(now())
 
-  coordinador User?    @relation("CoordinadorCarrera", fields: [coordinador_id], references: [id], onDelete: SetNull)
+  coordinador User?     @relation("CoordinadorCarrera", fields: [coordinador_id], references: [id], onDelete: SetNull)
   materias    Materia[]
 
   @@map("carreras")
@@ -121,10 +122,11 @@ model Materia {
 
   created_at DateTime @default(now())
 
-  carrera             Carrera             @relation(fields: [carrera_id], references: [id], onDelete: Cascade)
-  docente             User?               @relation("DocenteMateria", fields: [docente_id], references: [id], onDelete: SetNull)
-  horarios            Horario[]
-  clases_recuperacion ClaseRecuperacion[]
+  carrera               Carrera             @relation(fields: [carrera_id], references: [id], onDelete: Cascade)
+  docente               User?               @relation("DocenteMateria", fields: [docente_id], references: [id], onDelete: SetNull)
+  horarios              Horario[]
+  clases_recuperacion   ClaseRecuperacion[]
+  asignaciones_docentes AsignacionDocente[]
 
   @@index([carrera_id])
   @@index([carrera_id, ciclo])
@@ -142,60 +144,87 @@ model PeriodoAcademico {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
-  horarios Horario[]
+  horarios              Horario[]
+  asignaciones_docentes AsignacionDocente[]
 
   @@index([activo])
   @@index([fecha_inicio, fecha_fin])
   @@map("periodos_academicos")
 }
 
-model Horario {
-  id                   String    @id @default(uuid())
+model AsignacionDocente {
+  id                   String   @id @default(uuid())
   materia_id           String
-  docente_id           String?
-  periodo_academico_id String?
-  dia_semana           DiaSemana
-  hora_inicio          String    // formato HH:mm
-  hora_fin             String    // formato HH:mm
-  ciclo                String    // ej: "2026-I"
-  jornada              Jornada   @default(matutina)
-  modalidad            Modalidad @default(virtual)
-  url_aula_virtual     String?
-  activo               Boolean   @default(true)
-  fecha_inicio_ciclo   DateTime  @db.Date
-  fecha_fin_ciclo      DateTime  @db.Date
+  docente_id           String
+  periodo_academico_id String
+  jornada              Jornada
+  activa               Boolean  @default(true)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  materia           Materia          @relation(fields: [materia_id], references: [id], onDelete: Cascade)
+  docente           User             @relation(fields: [docente_id], references: [id], onDelete: Restrict)
+  periodo_academico PeriodoAcademico @relation(fields: [periodo_academico_id], references: [id], onDelete: Cascade)
+  horarios          Horario[]
+
+  @@unique([materia_id, docente_id, periodo_academico_id, jornada], name: "asignacion_docente_unica", map: "asignaciones_docentes_unica_key")
+  @@index([materia_id])
+  @@index([docente_id])
+  @@index([periodo_academico_id])
+  @@index([activa])
+  @@map("asignaciones_docentes")
+}
+
+model Horario {
+  id                    String    @id @default(uuid())
+  materia_id            String
+  docente_id            String?
+  periodo_academico_id  String?
+  asignacion_docente_id String?
+  dia_semana            DiaSemana
+  hora_inicio           String // formato HH:mm
+  hora_fin              String // formato HH:mm
+  ciclo                 String // ej: "2026-I"
+  jornada               Jornada   @default(matutina)
+  modalidad             Modalidad @default(virtual)
+  url_aula_virtual      String?
+  activo                Boolean   @default(true)
+  fecha_inicio_ciclo    DateTime  @db.Date
+  fecha_fin_ciclo       DateTime  @db.Date
 
   created_at DateTime @default(now())
 
   materia              Materia              @relation(fields: [materia_id], references: [id], onDelete: Cascade)
   docente              User?                @relation(fields: [docente_id], references: [id], onDelete: SetNull)
   periodo_academico    PeriodoAcademico?    @relation(fields: [periodo_academico_id], references: [id], onDelete: SetNull)
+  asignacion_docente   AsignacionDocente?   @relation(fields: [asignacion_docente_id], references: [id], onDelete: SetNull)
   registros_asistencia RegistroAsistencia[]
 
   @@index([materia_id])
   @@index([docente_id])
   @@index([periodo_academico_id])
+  @@index([asignacion_docente_id])
   @@index([dia_semana, ciclo])
   @@map("horarios")
 }
 
 model RegistroAsistencia {
-  id          String @id @default(uuid())
-  docente_id  String
-  horario_id  String
+  id         String @id @default(uuid())
+  docente_id String
+  horario_id String
 
-  timestamp_entrada           DateTime?
-  timestamp_salida            DateTime?
-  ip_entrada                  String?
-  ip_salida                   String?
-  foto_entrada_url            String?
-  foto_salida_url             String?
-  lat                         Decimal?               @db.Decimal(10, 8)
-  lng                         Decimal?               @db.Decimal(11, 8)
-  precision_m                 Int?
-  estado                      EstadoAsistencia       @default(ausente)
-  justificacion               String?                @db.Text
-  user_agent                  String?
+  timestamp_entrada DateTime?
+  timestamp_salida  DateTime?
+  ip_entrada        String?
+  ip_salida         String?
+  foto_entrada_url  String?
+  foto_salida_url   String?
+  lat               Decimal?         @db.Decimal(10, 8)
+  lng               Decimal?         @db.Decimal(11, 8)
+  precision_m       Int?
+  estado            EstadoAsistencia @default(ausente)
+  justificacion     String?          @db.Text
+  user_agent        String?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -253,7 +282,7 @@ model NotificacionLog {
 }
 
 model AuditLog {
-  id               String   @id @default(uuid())
+  id               String  @id @default(uuid())
   user_id          String?
   accion           String
   tabla_afectada   String

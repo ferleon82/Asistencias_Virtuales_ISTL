@@ -190,7 +190,8 @@ export function SchedulesSection({
         </div>
       )}
 
-      <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-4">
+      <h3 className="mt-5 font-brand text-lg font-bold text-brand-navy">Asignación docente</h3>
+      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
         <label className="text-sm text-slate-600 md:col-span-2">
           Materia
           <select
@@ -221,7 +222,7 @@ export function SchedulesSection({
             }}
             className="input-control"
           >
-            <option value="">Sin período</option>
+
             {periodosAcademicos
               .filter((periodo) => periodo.activo)
               .map((periodo) => (
@@ -337,7 +338,12 @@ export function SchedulesSection({
         <button
           type="button"
           onClick={() => void createHorario()}
-          disabled={adminLoading || !horarioForm.materia_id || !horarioForm.docente_id}
+          disabled={
+            adminLoading ||
+            !horarioForm.materia_id ||
+            !horarioForm.docente_id ||
+            !horarioForm.periodo_academico_id
+          }
           className="btn-primary self-end"
         >
           {adminLoading ? 'Guardando...' : editingHorarioId ? 'Actualizar horario' : 'Crear horario'}
