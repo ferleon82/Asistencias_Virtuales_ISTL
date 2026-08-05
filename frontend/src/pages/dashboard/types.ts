@@ -229,6 +229,8 @@ export interface AsistenciaItem {
   foto_entrada_url?: string | null;
   foto_salida_url?: string | null;
   estado: string;
+  estado_operativo?: 'en_curso' | 'salida_pendiente' | null;
+  puede_solicitar_justificacion?: boolean;
   justificacion?: string | null;
   horario: {
     dia_semana: string;

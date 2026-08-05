@@ -10,6 +10,7 @@ vi.mock('../../config/database', () => ({
     },
     registroAsistencia: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
@@ -262,6 +263,51 @@ describe('AsistenciasService', () => {
       service.solicitarJustificacion(
         openRegistro.id,
         { justificacion: 'No pude registrar correctamente por problemas de conexión.' },
+        user,
+        '127.0.0.1'
+      )
+    ).resolves.toEqual(justifiedRegistro);
+  });
+  it('muestra una marcación vencida sin salida como salida pendiente', async () => {
+    const expiredOpenRegistro = {
+      ...openRegistro,
+      horario: {
+        ...openRegistro.horario,
+        hora_inicio: '10:00',
+        hora_fin: '10:10',
+      },
+    };
+    vi.mocked(prisma.registroAsistencia.findMany).mockResolvedValue([expiredOpenRegistro] as never);
+
+    const registros = await service.list({}, user);
+
+    expect(registros[0]).toMatchObject({
+      estado_operativo: 'salida_pendiente',
+      puede_solicitar_justificacion: true,
+    });
+  });
+
+  it('permite justificar una salida olvidada después de la holgura', async () => {
+    const expiredOpenRegistro = {
+      ...openRegistro,
+      horario: {
+        ...openRegistro.horario,
+        hora_inicio: '10:00',
+        hora_fin: '10:10',
+      },
+    };
+    const justifiedRegistro = {
+      ...expiredOpenRegistro,
+      justificacion: 'Olvidé registrar la salida al finalizar la clase.',
+    };
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(expiredOpenRegistro as never);
+    vi.mocked(prisma.registroAsistencia.update).mockResolvedValue(justifiedRegistro as never);
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+
+    await expect(
+      service.solicitarJustificacion(
+        expiredOpenRegistro.id,
+        { justificacion: 'Olvidé registrar la salida al finalizar la clase.' },
         user,
         '127.0.0.1'
       )

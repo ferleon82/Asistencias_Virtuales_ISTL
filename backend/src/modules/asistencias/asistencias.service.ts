@@ -12,6 +12,7 @@ interface AuthScope {
 }
 
 const attendanceUploadsDir = path.resolve(process.cwd(), 'uploads', 'asistencias');
+const exitGraceMinutes = 15;
 
 const asistenciaInclude = {
   docente: {
@@ -95,6 +96,32 @@ function horarioPermiteIngreso(now: Date, horaInicio: string, horaFin: string): 
   return now <= classEnd && calcularEstadoAsistencia(now, horaInicio, now) !== 'fuera_de_ventana';
 }
 
+function getOpenAttendanceStatus(
+  registro: {
+    timestamp_entrada: Date | null;
+    timestamp_salida: Date | null;
+    justificacion: string | null;
+    horario: { hora_inicio: string; hora_fin: string };
+  },
+  now: Date
+) {
+  if (!registro.timestamp_entrada || registro.timestamp_salida || registro.justificacion) {
+    return { estado_operativo: null, puede_solicitar_justificacion: false };
+  }
+
+  const classEnd = timeOnDate(registro.timestamp_entrada, registro.horario.hora_fin);
+  const exitDeadline = addMinutes(classEnd, exitGraceMinutes);
+  const entryJustificationDeadline = addMinutes(
+    timeOnDate(registro.timestamp_entrada, registro.horario.hora_inicio),
+    15
+  );
+
+  return {
+    estado_operativo: now <= classEnd ? 'en_curso' : 'salida_pendiente',
+    puede_solicitar_justificacion: now <= entryJustificationDeadline || now > exitDeadline,
+  };
+}
+
 function buildRoleWhere(user: AuthScope): Prisma.RegistroAsistenciaWhereInput {
   if (user.rol === Rol.docente) {
     return { docente_id: user.id };
@@ -172,14 +199,31 @@ export class AsistenciasService {
 
     const now = nowInEcuador();
     const horario = await this.findHorarioActivo(user.id, now);
-    const registroAbierto = await this.findRegistroAbierto(user.id);
+    const registroAbiertoEncontrado = await this.findRegistroAbierto(user.id);
+    const registroAbierto =
+      registroAbiertoEncontrado &&
+      now <=
+        addMinutes(
+          timeOnDate(registroAbiertoEncontrado.timestamp_entrada!, registroAbiertoEncontrado.horario.hora_fin),
+          exitGraceMinutes
+        )
+        ? registroAbiertoEncontrado
+        : null;
     const registroDelHorario = horario
       ? await this.findRegistroDelHorarioHoyIncluyendoJustificacion(user.id, horario.id, now)
       : null;
     const salidaDisponibleDesde = registroAbierto
       ? subtractMinutes(timeOnDate(now, registroAbierto.horario.hora_fin), 10)
       : null;
-    const puedeMarcarSalida = !!registroAbierto && !!salidaDisponibleDesde && now >= salidaDisponibleDesde;
+    const salidaDisponibleHasta = registroAbierto
+      ? addMinutes(timeOnDate(now, registroAbierto.horario.hora_fin), exitGraceMinutes)
+      : null;
+    const puedeMarcarSalida =
+      !!registroAbierto &&
+      !!salidaDisponibleDesde &&
+      !!salidaDisponibleHasta &&
+      now >= salidaDisponibleDesde &&
+      now <= salidaDisponibleHasta;
     const attendancePhotoRequired = await isAttendancePhotoRequired();
 
     return {
@@ -201,12 +245,14 @@ export class AsistenciasService {
       throw new AppError('Solo los docentes pueden marcar asistencia.', 403);
     }
 
+    const now = nowInEcuador();
     const open = await this.findRegistroAbierto(user.id);
-    if (open) {
+    const openIsActionable =
+      open && now <= addMinutes(timeOnDate(open.timestamp_entrada!, open.horario.hora_fin), exitGraceMinutes);
+    if (openIsActionable) {
       throw new AppError('Ya existe una asistencia abierta. Marque salida antes de registrar otro ingreso.', 409);
     }
 
-    const now = nowInEcuador();
     const horario = await this.findHorarioActivo(user.id, now);
     if (!horario) {
       throw new AppError('No hay una clase activa dentro de la ventana de marcado.', 404);
@@ -263,6 +309,10 @@ export class AsistenciasService {
     if (now < salidaDisponibleDesde) {
       throw new AppError('La salida se habilita 10 minutos antes de la hora de fin de la clase.', 400);
     }
+    const salidaDisponibleHasta = addMinutes(timeOnDate(now, open.horario.hora_fin), exitGraceMinutes);
+    if (now > salidaDisponibleHasta) {
+      throw new AppError('El tiempo para marcar salida terminó. Solicite una justificación.', 400);
+    }
 
     const photoRequired = await isAttendancePhotoRequired();
     const registro = await prisma.registroAsistencia.update({
@@ -287,7 +337,7 @@ export class AsistenciasService {
   }
 
   async list(filters: ListAsistenciasQueryInput, user: AuthScope) {
-    return prisma.registroAsistencia.findMany({
+    const registros = await prisma.registroAsistencia.findMany({
       where: {
         AND: [buildRoleWhere(user), buildFiltersWhere(filters)],
       },
@@ -295,6 +345,12 @@ export class AsistenciasService {
       orderBy: [{ timestamp_entrada: 'desc' }, { created_at: 'desc' }],
       take: 100,
     });
+
+    const now = nowInEcuador();
+    return registros.map((registro) => ({
+      ...registro,
+      ...getOpenAttendanceStatus(registro, now),
+    }));
   }
 
   async solicitarJustificacion(id: string, data: JustificarAsistenciaInput, user: AuthScope, ip: string) {
@@ -327,8 +383,15 @@ export class AsistenciasService {
     }
 
     const now = nowInEcuador();
-    const markingWindowEnd = addMinutes(timeOnDate(current.timestamp_entrada, current.horario.hora_inicio), 15);
-    if (now > markingWindowEnd) {
+    const entryJustificationDeadline = addMinutes(
+      timeOnDate(current.timestamp_entrada, current.horario.hora_inicio),
+      15
+    );
+    const exitDeadline = addMinutes(
+      timeOnDate(current.timestamp_entrada, current.horario.hora_fin),
+      exitGraceMinutes
+    );
+    if (now > entryJustificationDeadline && now <= exitDeadline) {
       throw new AppError('La justificación solo puede solicitarse dentro del tiempo de marcado de la clase.', 400);
     }
 

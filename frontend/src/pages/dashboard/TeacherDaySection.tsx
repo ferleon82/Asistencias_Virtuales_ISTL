@@ -29,10 +29,6 @@ export function TeacherDaySection({
   attendanceLoading,
   sendJustificacion,
 }: TeacherDaySectionProps) {
-  const activeJustificationRecordId =
-    estadoAsistencia?.registroAbierto && estadoAsistencia.horarioActivo
-      ? estadoAsistencia.registroAbierto.id
-      : null;
   const activeHorarioForJustification =
     estadoAsistencia?.puedeMarcarEntrada && estadoAsistencia.horarioActivo
       ? estadoAsistencia.horarioActivo
@@ -170,13 +166,19 @@ export function TeacherDaySection({
                             hour: '2-digit',
                             minute: '2-digit',
                           })
-                        : registro.timestamp_entrada
-                          ? 'Abierta'
-                          : '-'}
+                        : registro.estado_operativo === 'salida_pendiente'
+                          ? 'Sin marcar'
+                          : registro.timestamp_entrada
+                            ? 'Abierta'
+                            : '-'}
                     </td>
                     <td className="py-2 pr-4">
                       <span className="rounded-full bg-istl-50 px-2 py-0.5 text-xs text-brand-navy">
-                        {registro.estado}
+                        {registro.estado_operativo === 'en_curso'
+                          ? 'En curso'
+                          : registro.estado_operativo === 'salida_pendiente'
+                            ? 'Salida pendiente'
+                            : registro.estado}
                       </span>
                     </td>
                     <td className="py-2 pr-4">
@@ -187,7 +189,7 @@ export function TeacherDaySection({
                         <span className="text-xs text-slate-500">
                           {registro.estado === 'justificado' ? 'Aprobada' : 'Enviada'}
                         </span>
-                      ) : activeJustificationRecordId === registro.id && !registro.timestamp_salida ? (
+                      ) : registro.puede_solicitar_justificacion && !registro.timestamp_salida ? (
                         <button
                           type="button"
                           onClick={() => {
