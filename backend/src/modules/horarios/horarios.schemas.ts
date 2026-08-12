@@ -32,6 +32,7 @@ const horarioBaseSchema = z.object({
   hora_fin: timeSchema,
   ciclo: z.string().trim().min(1, 'Ciclo requerido').max(30),
   jornada: z.nativeEnum(Jornada).default(Jornada.matutina),
+  paralelo: z.enum(['A', 'B', 'C', 'D']).default('A'),
   modalidad: z.nativeEnum(Modalidad).default(Modalidad.virtual),
   url_aula_virtual: z.string().url('URL de aula virtual invalida').optional(),
   activo: z.boolean().default(true),

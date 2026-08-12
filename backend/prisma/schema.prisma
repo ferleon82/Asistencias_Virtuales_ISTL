@@ -158,6 +158,7 @@ model AsignacionDocente {
   docente_id           String
   periodo_academico_id String
   jornada              Jornada
+  paralelo             String   @default("A")
   activa               Boolean  @default(true)
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt
@@ -167,7 +168,7 @@ model AsignacionDocente {
   periodo_academico PeriodoAcademico @relation(fields: [periodo_academico_id], references: [id], onDelete: Cascade)
   horarios          Horario[]
 
-  @@unique([materia_id, docente_id, periodo_academico_id, jornada], name: "asignacion_docente_unica", map: "asignaciones_docentes_unica_key")
+  @@unique([materia_id, docente_id, periodo_academico_id, jornada, paralelo], name: "asignacion_docente_unica", map: "asignaciones_docentes_unica_key")
   @@index([materia_id])
   @@index([docente_id])
   @@index([periodo_academico_id])
@@ -213,18 +214,24 @@ model RegistroAsistencia {
   docente_id String
   horario_id String
 
-  timestamp_entrada DateTime?
-  timestamp_salida  DateTime?
-  ip_entrada        String?
-  ip_salida         String?
-  foto_entrada_url  String?
-  foto_salida_url   String?
-  lat               Decimal?         @db.Decimal(10, 8)
-  lng               Decimal?         @db.Decimal(11, 8)
-  precision_m       Int?
-  estado            EstadoAsistencia @default(ausente)
-  justificacion     String?          @db.Text
-  user_agent        String?
+  timestamp_entrada   DateTime?
+  timestamp_salida    DateTime?
+  ip_entrada          String?
+  ip_salida           String?
+  foto_entrada_url    String?
+  foto_salida_url     String?
+  lat_entrada         Decimal?         @db.Decimal(10, 8)
+  lng_entrada         Decimal?         @db.Decimal(11, 8)
+  precision_entrada_m Int?
+  lat_salida          Decimal?         @db.Decimal(10, 8)
+  lng_salida          Decimal?         @db.Decimal(11, 8)
+  precision_salida_m  Int?
+  lat                 Decimal?         @db.Decimal(10, 8)
+  lng                 Decimal?         @db.Decimal(11, 8)
+  precision_m         Int?
+  estado              EstadoAsistencia @default(ausente)
+  justificacion       String?          @db.Text
+  user_agent          String?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

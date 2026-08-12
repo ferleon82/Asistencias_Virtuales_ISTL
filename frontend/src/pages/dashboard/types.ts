@@ -78,6 +78,7 @@ export interface ReportRow {
   materia: string;
   ciclo: string;
   periodo_academico?: string;
+  paralelo?: string;
   dia: string;
   horario: string;
   entrada: string;
@@ -88,6 +89,12 @@ export interface ReportRow {
   lat?: number | string | null;
   lng?: number | string | null;
   precision_m?: number | null;
+  lat_entrada?: number | string | null;
+  lng_entrada?: number | string | null;
+  precision_entrada_m?: number | null;
+  lat_salida?: number | string | null;
+  lng_salida?: number | string | null;
+  precision_salida_m?: number | null;
   foto_entrada_url?: string | null;
   foto_salida_url?: string | null;
 }
@@ -160,6 +167,9 @@ export interface HorarioItem {
     email?: string;
   } | null;
   jornada: string;
+  asignacion_docente?: {
+    paralelo: string;
+  } | null;
   modalidad: string;
   url_aula_virtual?: string | null;
   activo: boolean;
@@ -191,6 +201,7 @@ export interface HorarioForm {
   hora_fin: string;
   ciclo: string;
   jornada: string;
+  paralelo: string;
   modalidad: string;
   fecha_inicio_ciclo: string;
   fecha_fin_ciclo: string;
@@ -226,6 +237,12 @@ export interface AsistenciaItem {
   lat?: number | string | null;
   lng?: number | string | null;
   precision_m?: number | null;
+  lat_entrada?: number | string | null;
+  lng_entrada?: number | string | null;
+  precision_entrada_m?: number | null;
+  lat_salida?: number | string | null;
+  lng_salida?: number | string | null;
+  precision_salida_m?: number | null;
   foto_entrada_url?: string | null;
   foto_salida_url?: string | null;
   estado: string;

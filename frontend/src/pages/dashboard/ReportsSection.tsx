@@ -280,11 +280,12 @@ export function ReportsSection({
             <tr className="text-left text-xs uppercase text-slate-500">
               <th className="py-2 pr-4">Docente</th>
               <th className="py-2 pr-4">Carrera</th>
-              <th className="py-2 pr-4">Materia</th>
+              <th className="py-2 pr-4">Materia</th>`n              <th className="py-2 pr-4">Paralelo</th>
               <th className="py-2 pr-4">Entrada</th>
               <th className="py-2 pr-4">Salida</th>
               <th className="py-2 pr-4">Estado</th>
-              <th className="py-2 pr-4">Ubicación</th>
+              <th className="py-2 pr-4">GPS entrada</th>
+              <th className="py-2 pr-4">GPS salida</th>
               <th className="py-2 pr-4">Foto</th>
               <th className="py-2 pr-4">Justificación</th>
             </tr>
@@ -294,7 +295,7 @@ export function ReportsSection({
               <tr key={`${registro.email}-${registro.entrada}-${previewStartIndex + index}`}>
                 <td className="py-2 pr-4 text-slate-700">{registro.docente}</td>
                 <td className="py-2 pr-4 text-slate-500">{registro.carrera}</td>
-                <td className="py-2 pr-4 text-slate-500">{registro.materia}</td>
+                <td className="py-2 pr-4 text-slate-500">{registro.materia}</td>`n                <td className="py-2 pr-4 text-slate-500">{registro.paralelo ?? 'A'}</td>
                 <td className="py-2 pr-4 text-slate-500">{registro.entrada || '-'}</td>
                 <td className="py-2 pr-4 text-slate-500">{registro.salida || '-'}</td>
                 <td className="py-2 pr-4">
@@ -303,7 +304,10 @@ export function ReportsSection({
                   </span>
                 </td>
                 <td className="py-2 pr-4">
-                  <LocationLink lat={registro.lat} lng={registro.lng} precision={registro.precision_m} />
+                  <LocationLink lat={registro.lat_entrada ?? registro.lat} lng={registro.lng_entrada ?? registro.lng} precision={registro.precision_entrada_m ?? registro.precision_m} />
+                </td>
+                <td className="py-2 pr-4">
+                  <LocationLink lat={registro.lat_salida} lng={registro.lng_salida} precision={registro.precision_salida_m} />
                 </td>
                 <td className="py-2 pr-4">
                   <div className="flex flex-col gap-1 text-xs">
@@ -366,7 +370,7 @@ export function ReportsSection({
             ))}
             {totalPreviewRecords === 0 && (
               <tr>
-                <td className="py-4 text-slate-500" colSpan={9}>No hay registros para los filtros seleccionados.</td>
+                <td className="py-4 text-slate-500" colSpan={11}>No hay registros para los filtros seleccionados.</td>
               </tr>
             )}
           </tbody>

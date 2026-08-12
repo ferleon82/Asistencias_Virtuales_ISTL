@@ -82,7 +82,7 @@ export function TeacherDaySection({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-700">
-                      {horario.materia.codigo} - {horario.materia.nombre}
+                      {horario.materia.codigo} - {horario.materia.nombre} (Paralelo {horario.asignacion_docente?.paralelo ?? 'A'})
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
                       {horario.hora_inicio} - {horario.hora_fin} - {horario.modalidad}
@@ -119,7 +119,8 @@ export function TeacherDaySection({
                   <th className="py-2 pr-4">Entrada</th>
                   <th className="py-2 pr-4">Salida</th>
                   <th className="py-2 pr-4">Estado</th>
-                  <th className="py-2 pr-4">Ubicación</th>
+                  <th className="py-2 pr-4">GPS entrada</th>
+                  <th className="py-2 pr-4">GPS salida</th>
                   <th className="py-2 pr-4">Justificación</th>
                 </tr>
               </thead>
@@ -182,7 +183,10 @@ export function TeacherDaySection({
                       </span>
                     </td>
                     <td className="py-2 pr-4">
-                      <LocationLink lat={registro.lat} lng={registro.lng} precision={registro.precision_m} />
+                      <LocationLink lat={registro.lat_entrada ?? registro.lat} lng={registro.lng_entrada ?? registro.lng} precision={registro.precision_entrada_m ?? registro.precision_m} />
+                    </td>
+                    <td className="py-2 pr-4">
+                      <LocationLink lat={registro.lat_salida} lng={registro.lng_salida} precision={registro.precision_salida_m} />
                     </td>
                     <td className="py-2 pr-4">
                       {registro.justificacion ? (
@@ -214,7 +218,7 @@ export function TeacherDaySection({
                 ))}
                 {docenteHistorial.length === 0 && !activeHorarioForJustification && (
                   <tr>
-                    <td className="py-4 text-slate-500" colSpan={6}>Sin marcaciones recientes.</td>
+                    <td className="py-4 text-slate-500" colSpan={7}>Sin marcaciones recientes.</td>
                   </tr>
                 )}
               </tbody>

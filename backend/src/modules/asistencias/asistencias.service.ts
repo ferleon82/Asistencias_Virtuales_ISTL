@@ -25,6 +25,7 @@ const asistenciaInclude = {
   },
   horario: {
     include: {
+      asignacion_docente: { select: { paralelo: true } },
       materia: {
         select: {
           id: true,
@@ -276,6 +277,10 @@ export class AsistenciasService {
         timestamp_entrada: now,
         ip_entrada: ip,
         foto_entrada_url: await saveAttendancePhoto(location.foto_base64, user.id, 'entrada', photoRequired),
+        lat_entrada: location.lat,
+        lng_entrada: location.lng,
+        precision_entrada_m: location.precision_m,
+        // Campos heredados para que los registros previos sigan siendo compatibles.
         lat: location.lat,
         lng: location.lng,
         precision_m: location.precision_m,

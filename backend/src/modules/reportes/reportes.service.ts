@@ -17,6 +17,7 @@ interface ReportRow {
   materia: string;
   ciclo: string;
   periodo_academico: string;
+  paralelo: string;
   dia: string;
   horario: string;
   entrada: string;
@@ -29,6 +30,12 @@ interface ReportRow {
   lat: number | null;
   lng: number | null;
   precision_m: number | null;
+  lat_entrada: number | null;
+  lng_entrada: number | null;
+  precision_entrada_m: number | null;
+  lat_salida: number | null;
+  lng_salida: number | null;
+  precision_salida_m: number | null;
 }
 
 interface ReportSummaryData {
@@ -85,6 +92,7 @@ const asistenciaInclude = {
   },
   horario: {
     include: {
+      asignacion_docente: { select: { paralelo: true } },
       periodo_academico: true,
       materia: {
         include: {
@@ -388,7 +396,7 @@ function drawReportRow(document: PDFKit.PDFDocument, row: ReportRow, y: number, 
     .fillColor('#111827')
     .fontSize(7.2)
     .text(row.docente, 46, y + 6, { width: 98, height: 24 })
-    .text(row.materia, 148, y + 6, { width: 100, height: 24 })
+    .text(`${row.materia} (${row.paralelo})`, 148, y + 6, { width: 100, height: 24 })
     .text(row.horario, 252, y + 6, { width: 68 })
     .text(row.entrada || '-', 324, y + 6, { width: 70 })
     .text(row.salida || '-', 396, y + 6, { width: 58 })
@@ -490,6 +498,7 @@ function toRows(registros: Awaited<ReturnType<typeof fetchRegistros>>): ReportRo
     materia: registro.horario.materia.nombre,
     ciclo: String(registro.horario.materia.ciclo),
     periodo_academico: registro.horario.periodo_academico?.nombre ?? registro.horario.ciclo,
+    paralelo: registro.horario.asignacion_docente?.paralelo ?? 'A',
     dia: registro.horario.dia_semana,
     horario: `${registro.horario.hora_inicio} - ${registro.horario.hora_fin}`,
     entrada: formatDateTime(registro.timestamp_entrada),
@@ -502,6 +511,12 @@ function toRows(registros: Awaited<ReturnType<typeof fetchRegistros>>): ReportRo
     lat: registro.lat ? Number(registro.lat) : null,
     lng: registro.lng ? Number(registro.lng) : null,
     precision_m: registro.precision_m,
+    lat_entrada: registro.lat_entrada ? Number(registro.lat_entrada) : registro.lat ? Number(registro.lat) : null,
+    lng_entrada: registro.lng_entrada ? Number(registro.lng_entrada) : registro.lng ? Number(registro.lng) : null,
+    precision_entrada_m: registro.precision_entrada_m ?? registro.precision_m,
+    lat_salida: registro.lat_salida ? Number(registro.lat_salida) : null,
+    lng_salida: registro.lng_salida ? Number(registro.lng_salida) : null,
+    precision_salida_m: registro.precision_salida_m,
   }));
 }
 
@@ -717,9 +732,12 @@ export class ReportesService {
       { header: 'IP entrada', key: 'ip_entrada', width: 18 },
       { header: 'Foto entrada', key: 'foto_entrada_url', width: 34 },
       { header: 'Foto salida', key: 'foto_salida_url', width: 34 },
-      { header: 'Latitud', key: 'lat', width: 14 },
-      { header: 'Longitud', key: 'lng', width: 14 },
-      { header: 'Precisión m', key: 'precision_m', width: 14 },
+      { header: 'Latitud entrada', key: 'lat_entrada', width: 16 },
+      { header: 'Longitud entrada', key: 'lng_entrada', width: 16 },
+      { header: 'Precisión entrada m', key: 'precision_entrada_m', width: 18 },
+      { header: 'Latitud salida', key: 'lat_salida', width: 16 },
+      { header: 'Longitud salida', key: 'lng_salida', width: 16 },
+      { header: 'Precisión salida m', key: 'precision_salida_m', width: 18 },
     ];
     registrosSheet.addRows(data.registros);
 

@@ -89,6 +89,10 @@ function overlaps(startA: string, endA: string, startB: string, endB: string): b
   return timeToMinutes(startA) < timeToMinutes(endB) && timeToMinutes(startB) < timeToMinutes(endA);
 }
 
+function normalizeParalelo(paralelo?: string): 'A' | 'B' | 'C' | 'D' {
+  return paralelo === 'B' || paralelo === 'C' || paralelo === 'D' ? paralelo : 'A';
+}
+
 export class HorariosService {
   async list(filters: HorarioQueryInput, user: AuthScope) {
     const where: Prisma.HorarioWhereInput = {
@@ -124,10 +128,11 @@ export class HorariosService {
     const normalizedData = await this.normalizePeriodo(data);
     const asignacion = await this.resolveAssignment(normalizedData);
     await this.assertNoOverlap(normalizedData);
+    const { paralelo: _paralelo, ...horarioData } = normalizedData;
 
     const horario = await prisma.horario.create({
       data: {
-        ...normalizedData,
+        ...horarioData,
         asignacion_docente_id: asignacion.id,
       },
       include: horarioInclude,
@@ -159,7 +164,7 @@ export class HorariosService {
       await this.assertDocenteManageable(data.docente_id, user);
     }
 
-    const normalizedData = await this.normalizePeriodo({
+    const normalizedData = await this.normalizePeriodo<CreateHorarioInput>({
       materia_id: nextMateriaId,
       docente_id: nextDocenteId,
       periodo_academico_id: nextPeriodoId,
@@ -168,6 +173,7 @@ export class HorariosService {
       hora_fin: data.hora_fin ?? current.hora_fin,
       ciclo: data.ciclo ?? current.ciclo,
       jornada: data.jornada ?? current.jornada,
+      paralelo: normalizeParalelo(data.paralelo ?? current.asignacion_docente?.paralelo),
       modalidad: data.modalidad ?? current.modalidad,
       url_aula_virtual: data.url_aula_virtual ?? current.url_aula_virtual ?? undefined,
       activo: data.activo ?? current.activo,
@@ -176,11 +182,12 @@ export class HorariosService {
     });
     const asignacion = await this.resolveAssignment(normalizedData);
     await this.assertNoOverlap(normalizedData, id);
+    const { paralelo: _paralelo, ...horarioData } = normalizedData;
 
     const horario = await prisma.horario.update({
       where: { id },
       data: {
-        ...normalizedData,
+        ...horarioData,
         asignacion_docente_id: asignacion.id,
       },
       include: horarioInclude,
@@ -211,6 +218,7 @@ export class HorariosService {
         id,
         AND: [buildRoleWhere(user)],
       },
+      include: { asignacion_docente: { select: { paralelo: true } } },
     });
 
     if (!horario) {
@@ -263,6 +271,7 @@ export class HorariosService {
           docente_id: data.docente_id,
           periodo_academico_id: data.periodo_academico_id,
           jornada: data.jornada,
+          paralelo: data.paralelo,
         },
       },
       create: {
@@ -270,6 +279,7 @@ export class HorariosService {
         docente_id: data.docente_id,
         periodo_academico_id: data.periodo_academico_id,
         jornada: data.jornada,
+        paralelo: data.paralelo,
       },
       update: { activa: true },
     });

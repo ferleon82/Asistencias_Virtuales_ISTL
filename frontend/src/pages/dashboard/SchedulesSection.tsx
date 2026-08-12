@@ -34,6 +34,7 @@ type ScheduleFilters = {
   dia: string;
   hora: string;
   jornada: string;
+  paralelo: string;
   ciclo: string;
   periodo: string;
   estado: string;
@@ -47,6 +48,7 @@ const emptyFilters: ScheduleFilters = {
   dia: '',
   hora: '',
   jornada: '',
+  paralelo: '',
   ciclo: '',
   periodo: '',
   estado: '',
@@ -111,7 +113,7 @@ export function SchedulesSection({
   const filterControlClass = 'mt-1 h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs font-normal normal-case text-slate-700 outline-none focus:border-brand-teal focus:ring-1 focus:ring-brand-teal';
   const headerLabelClass = 'block text-[11px] font-semibold uppercase text-slate-500';
   const tableMinWidth = isCoordinator ? 'min-w-[1040px]' : 'min-w-[1180px]';
-  const tableColSpan = isCoordinator ? 9 : 10;
+  const tableColSpan = isCoordinator ? 10 : 11;
 
   const carreraOptions = useMemo(
     () => uniqueSorted(horarios.map((horario) => horario.materia.carrera.codigo)),
@@ -139,6 +141,7 @@ export function SchedulesSection({
           (!scheduleFilters.dia || horario.dia_semana === scheduleFilters.dia) &&
           containsFilter(hora, scheduleFilters.hora) &&
           (!scheduleFilters.jornada || horario.jornada === scheduleFilters.jornada) &&
+          (!scheduleFilters.paralelo || (horario.asignacion_docente?.paralelo ?? 'A') === scheduleFilters.paralelo) &&
           (!scheduleFilters.ciclo || String(horario.materia.ciclo) === scheduleFilters.ciclo) &&
           (!scheduleFilters.periodo || horario.periodo_academico?.nombre === scheduleFilters.periodo) &&
           (!scheduleFilters.estado || estado === scheduleFilters.estado)
@@ -268,6 +271,18 @@ export function SchedulesSection({
           >
             {journeyOptions.map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm text-slate-600">
+          Paralelo
+          <select
+            value={horarioForm.paralelo}
+            onChange={(event) => setHorarioForm((current) => ({ ...current, paralelo: event.target.value }))}
+            className="input-control"
+          >
+            {['A', 'B', 'C', 'D'].map((paralelo) => (
+              <option key={paralelo} value={paralelo}>{paralelo}</option>
             ))}
           </select>
         </label>
@@ -466,6 +481,14 @@ export function SchedulesSection({
                 </select>
               </th>
               <th className="w-[7%] py-2 pr-3">
+                <span className={headerLabelClass}>Paralelo</span>
+                <input
+                  value={scheduleFilters.paralelo}
+                  onChange={(event) => updateFilter('paralelo', event.target.value.toUpperCase())}
+                  className={filterControlClass}
+                />
+              </th>
+              <th className="w-[7%] py-2 pr-3">
                 <span className={headerLabelClass}>Ciclo</span>
                 <select
                   value={scheduleFilters.ciclo}
@@ -515,6 +538,7 @@ export function SchedulesSection({
                 <td className="py-2 pr-4 text-slate-500">{horario.dia_semana}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.hora_inicio} - {horario.hora_fin}</td>
                 <td className="py-2 pr-4 text-slate-500 capitalize">{horario.jornada}</td>
+                <td className="py-2 pr-4 text-slate-500">{horario.asignacion_docente?.paralelo ?? 'A'}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.materia.ciclo}</td>
                 <td className="py-2 pr-4 text-slate-500">{horario.periodo_academico?.nombre ?? '-'}</td>
                 <td className="py-2 pr-4">
