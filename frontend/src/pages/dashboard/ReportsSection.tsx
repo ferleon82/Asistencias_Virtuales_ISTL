@@ -280,7 +280,8 @@ export function ReportsSection({
             <tr className="text-left text-xs uppercase text-slate-500">
               <th className="py-2 pr-4">Docente</th>
               <th className="py-2 pr-4">Carrera</th>
-              <th className="py-2 pr-4">Materia</th>`n              <th className="py-2 pr-4">Paralelo</th>
+              <th className="py-2 pr-4">Materia</th>
+              <th className="py-2 pr-4">Paralelo</th>
               <th className="py-2 pr-4">Entrada</th>
               <th className="py-2 pr-4">Salida</th>
               <th className="py-2 pr-4">Estado</th>
@@ -295,7 +296,8 @@ export function ReportsSection({
               <tr key={`${registro.email}-${registro.entrada}-${previewStartIndex + index}`}>
                 <td className="py-2 pr-4 text-slate-700">{registro.docente}</td>
                 <td className="py-2 pr-4 text-slate-500">{registro.carrera}</td>
-                <td className="py-2 pr-4 text-slate-500">{registro.materia}</td>`n                <td className="py-2 pr-4 text-slate-500">{registro.paralelo ?? 'A'}</td>
+                <td className="py-2 pr-4 text-slate-500">{registro.materia}</td>
+                <td className="py-2 pr-4 text-slate-500">{registro.paralelo ?? 'A'}</td>
                 <td className="py-2 pr-4 text-slate-500">{registro.entrada || '-'}</td>
                 <td className="py-2 pr-4 text-slate-500">{registro.salida || '-'}</td>
                 <td className="py-2 pr-4">

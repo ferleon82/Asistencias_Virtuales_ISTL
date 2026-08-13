@@ -73,7 +73,7 @@ export function TeacherDaySection({
         </div>
       )}
 
-      <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(260px,0.7fr)_minmax(0,2.3fr)]">
         <div>
           <h3 className="text-sm font-semibold uppercase text-slate-500">Clases de hoy</h3>
           <div className="mt-3 space-y-2">
@@ -82,7 +82,7 @@ export function TeacherDaySection({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-700">
-                      {horario.materia.codigo} - {horario.materia.nombre} (Paralelo {horario.asignacion_docente?.paralelo ?? 'A'})
+                      {horario.materia.codigo} - {horario.materia.nombre} ({horario.asignacion_docente?.paralelo ?? 'A'})
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
                       {horario.hora_inicio} - {horario.hora_fin} - {horario.modalidad}
@@ -112,7 +112,7 @@ export function TeacherDaySection({
         <div>
           <h3 className="text-sm font-semibold uppercase text-slate-500">Marcaciones recientes</h3>
           <div className="table-container mt-3">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <table className="min-w-[780px] w-full divide-y divide-slate-200 text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase text-slate-500">
                   <th className="py-2 pr-4">Materia</th>
