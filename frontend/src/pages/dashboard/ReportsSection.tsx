@@ -1,5 +1,6 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { LocationLink } from './LocationLink';
+import { SpanishDatePicker } from './SpanishDatePicker';
 import type { CarreraOption, DocenteOption, MateriaOption, PeriodoAcademicoOption, ReportSummary } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '';
@@ -73,6 +74,7 @@ export function ReportsSection({
   const isTeacherReport = userRole === 'docente';
   const previewPageSize = 10;
   const [previewPage, setPreviewPage] = useState(1);
+  const [openDatePicker, setOpenDatePicker] = useState<'from' | 'to' | null>(null);
   const previewRecords = reportSummary?.registros ?? [];
   const totalPreviewRecords = previewRecords.length;
   const totalPreviewPages = Math.max(1, Math.ceil(totalPreviewRecords / previewPageSize));
@@ -101,20 +103,20 @@ export function ReportsSection({
         <div className={`grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 ${isTeacherReport ? '2xl:grid-cols-6' : '2xl:grid-cols-8'}`}>
           <label className="min-w-0 text-sm text-slate-600">
             Desde
-            <input
-              type="date"
+            <SpanishDatePicker
               value={reportFrom}
-              onChange={(event) => setReportFrom(event.target.value)}
-              className="input-control"
+              onChange={setReportFrom}
+              isOpen={openDatePicker === 'from'}
+              onOpenChange={(isOpen) => setOpenDatePicker(isOpen ? 'from' : null)}
             />
           </label>
           <label className="min-w-0 text-sm text-slate-600">
             Hasta
-            <input
-              type="date"
+            <SpanishDatePicker
               value={reportTo}
-              onChange={(event) => setReportTo(event.target.value)}
-              className="input-control"
+              onChange={setReportTo}
+              isOpen={openDatePicker === 'to'}
+              onOpenChange={(isOpen) => setOpenDatePicker(isOpen ? 'to' : null)}
             />
           </label>
           <label className="min-w-0 text-sm text-slate-600">
