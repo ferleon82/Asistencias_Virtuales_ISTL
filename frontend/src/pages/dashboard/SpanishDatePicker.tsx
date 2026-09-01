@@ -80,10 +80,15 @@ export function SpanishDatePicker({ value, onChange, isOpen: controlledIsOpen, o
         onClick={openPicker}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
-        className="input-control mt-0 flex items-center justify-between rounded-md border border-slate-300 bg-white text-left text-slate-700 shadow-sm focus:border-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-navy/20"
+        className="input-control group mt-0 flex items-center justify-between rounded-md border border-slate-300 bg-white text-left text-slate-700 shadow-sm focus:border-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-navy/20"
       >
         {selectedDate.toLocaleDateString('es-EC')}
-        <span aria-hidden="true" className="ml-3 text-base">▣</span>
+        <span aria-hidden="true" className="ml-3 flex h-5 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors group-hover:text-brand-navy group-focus-visible:text-brand-navy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-[18px] w-[18px]">
+            <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+            <path d="M7.5 3.5v3M16.5 3.5v3M3.5 9.5h17M8 13h.01M12 13h.01M16 13h.01M8 16.5h.01M12 16.5h.01" strokeLinecap="round" />
+          </svg>
+        </span>
       </button>
       {isOpen && (
         <div role="dialog" aria-label="Seleccionar fecha" className="absolute z-30 mt-1 w-72 rounded-md border border-slate-300 bg-white p-3 shadow-lg">
