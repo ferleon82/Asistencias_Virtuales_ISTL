@@ -15,6 +15,7 @@ import asistenciasRoutes from './modules/asistencias/asistencias.routes';
 import reportesRoutes from './modules/reportes/reportes.routes';
 import docsRoutes from './modules/docs/docs.routes';
 import adminRoutes from './modules/admin/admin.routes';
+import horasAdministrativasRoutes from './modules/horas-administrativas/horas-administrativas.routes';
 
 // ─── Aplicación Express ────────────────────────────────────────────────────────
 
@@ -91,6 +92,7 @@ export function createApp(): Application {
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/horarios', horariosRoutes);
   app.use('/api/v1/asistencias', asistenciasRoutes);
+  app.use('/api/v1/horas-administrativas', horasAdministrativasRoutes);
   app.use('/api/v1/reportes', reportesRoutes);
   app.use('/api/v1/admin', adminRoutes);
 

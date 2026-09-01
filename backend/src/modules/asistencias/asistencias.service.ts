@@ -4,6 +4,7 @@ import path from 'node:path';
 import { prisma } from '../../config/database';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { calcularEstadoAsistencia, nowInEcuador } from '../../shared/utils/timezone';
+import { getAttendanceWindows, type AttendanceWindowSettings } from '../../shared/utils/attendanceSettings';
 import type { JustificarAsistenciaInput, ListAsistenciasQueryInput, LocationInput } from './asistencias.schemas';
 
 interface AuthScope {
@@ -12,7 +13,6 @@ interface AuthScope {
 }
 
 const attendanceUploadsDir = path.resolve(process.cwd(), 'uploads', 'asistencias');
-const exitGraceMinutes = 15;
 
 const asistenciaInclude = {
   docente: {
@@ -92,9 +92,9 @@ function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60_000);
 }
 
-function horarioPermiteIngreso(now: Date, horaInicio: string, horaFin: string): boolean {
+function horarioPermiteIngreso(now: Date, horaInicio: string, horaFin: string, windows: AttendanceWindowSettings): boolean {
   const classEnd = timeOnDate(now, horaFin);
-  return now <= classEnd && calcularEstadoAsistencia(now, horaInicio, now) !== 'fuera_de_ventana';
+  return now <= classEnd && calcularEstadoAsistencia(now, horaInicio, now, windows.entryBeforeMinutes, windows.entryAfterMinutes) !== 'fuera_de_ventana';
 }
 
 function getOpenAttendanceStatus(
@@ -111,7 +111,7 @@ function getOpenAttendanceStatus(
   }
 
   const classEnd = timeOnDate(registro.timestamp_entrada, registro.horario.hora_fin);
-  const exitDeadline = addMinutes(classEnd, exitGraceMinutes);
+  const exitDeadline = addMinutes(classEnd, 15);
   const entryJustificationDeadline = addMinutes(
     timeOnDate(registro.timestamp_entrada, registro.horario.hora_inicio),
     15
@@ -199,14 +199,23 @@ export class AsistenciasService {
     }
 
     const now = nowInEcuador();
-    const horario = await this.findHorarioActivo(user.id, now);
+    const windows = await getAttendanceWindows();
+    const horario = await this.findHorarioActivo(user.id, now, windows);
     const registroAbiertoEncontrado = await this.findRegistroAbierto(user.id);
+    const registroAdministrativoAbierto = await prisma.registroAdministrativo.findFirst({
+      where: {
+        docente_id: user.id,
+        timestamp_salida: null,
+        timestamp_entrada: { gte: startOfDay(now), lte: endOfDay(now) },
+      },
+      select: { id: true },
+    });
     const registroAbierto =
       registroAbiertoEncontrado &&
       now <=
         addMinutes(
           timeOnDate(registroAbiertoEncontrado.timestamp_entrada!, registroAbiertoEncontrado.horario.hora_fin),
-          exitGraceMinutes
+          windows.exitAfterMinutes
         )
         ? registroAbiertoEncontrado
         : null;
@@ -214,10 +223,10 @@ export class AsistenciasService {
       ? await this.findRegistroDelHorarioHoyIncluyendoJustificacion(user.id, horario.id, now)
       : null;
     const salidaDisponibleDesde = registroAbierto
-      ? subtractMinutes(timeOnDate(now, registroAbierto.horario.hora_fin), 10)
+      ? subtractMinutes(timeOnDate(now, registroAbierto.horario.hora_fin), windows.exitBeforeMinutes)
       : null;
     const salidaDisponibleHasta = registroAbierto
-      ? addMinutes(timeOnDate(now, registroAbierto.horario.hora_fin), exitGraceMinutes)
+      ? addMinutes(timeOnDate(now, registroAbierto.horario.hora_fin), windows.exitAfterMinutes)
       : null;
     const puedeMarcarSalida =
       !!registroAbierto &&
@@ -230,13 +239,13 @@ export class AsistenciasService {
     return {
       horarioActivo: horario,
       registroAbierto,
-      puedeMarcarEntrada: !!horario && !registroAbierto && !registroDelHorario,
+      puedeMarcarEntrada: !!horario && !registroAbierto && !registroAdministrativoAbierto && !registroDelHorario,
       puedeMarcarSalida,
       attendancePhotoRequired,
       salidaDisponibleDesde: salidaDisponibleDesde?.toISOString() ?? null,
       salidaBloqueadaMotivo:
         registroAbierto && !puedeMarcarSalida
-          ? 'La salida se habilita 10 minutos antes de la hora de fin de la clase.'
+          ? `La salida se habilita ${windows.exitBeforeMinutes} minutos antes de la hora de fin de la clase.`
           : null,
     };
   }
@@ -247,14 +256,26 @@ export class AsistenciasService {
     }
 
     const now = nowInEcuador();
+    const windows = await getAttendanceWindows();
     const open = await this.findRegistroAbierto(user.id);
     const openIsActionable =
-      open && now <= addMinutes(timeOnDate(open.timestamp_entrada!, open.horario.hora_fin), exitGraceMinutes);
+      open && now <= addMinutes(timeOnDate(open.timestamp_entrada!, open.horario.hora_fin), windows.exitAfterMinutes);
     if (openIsActionable) {
       throw new AppError('Ya existe una asistencia abierta. Marque salida antes de registrar otro ingreso.', 409);
     }
+    const administrativeOpen = await prisma.registroAdministrativo.findFirst({
+      where: {
+        docente_id: user.id,
+        timestamp_salida: null,
+        timestamp_entrada: { gte: startOfDay(now), lte: endOfDay(now) },
+      },
+      select: { id: true },
+    });
+    if (administrativeOpen) {
+      throw new AppError('Debe marcar salida de la hora administrativa antes de iniciar una clase.', 409);
+    }
 
-    const horario = await this.findHorarioActivo(user.id, now);
+    const horario = await this.findHorarioActivo(user.id, now, windows);
     if (!horario) {
       throw new AppError('No hay una clase activa dentro de la ventana de marcado.', 404);
     }
@@ -264,7 +285,7 @@ export class AsistenciasService {
       throw new AppError('La asistencia de esta clase ya fue registrada. No puede marcar ingreso nuevamente.', 409);
     }
 
-    const estadoCalculado = calcularEstadoAsistencia(now, horario.hora_inicio, now);
+    const estadoCalculado = calcularEstadoAsistencia(now, horario.hora_inicio, now, windows.entryBeforeMinutes, windows.entryAfterMinutes);
     if (estadoCalculado === 'fuera_de_ventana') {
       throw new AppError('La clase no esta dentro de la ventana permitida de marcado.', 400);
     }
@@ -310,11 +331,12 @@ export class AsistenciasService {
     }
 
     const now = nowInEcuador();
-    const salidaDisponibleDesde = subtractMinutes(timeOnDate(now, open.horario.hora_fin), 10);
+    const windows = await getAttendanceWindows();
+    const salidaDisponibleDesde = subtractMinutes(timeOnDate(now, open.horario.hora_fin), windows.exitBeforeMinutes);
     if (now < salidaDisponibleDesde) {
-      throw new AppError('La salida se habilita 10 minutos antes de la hora de fin de la clase.', 400);
+      throw new AppError(`La salida se habilita ${windows.exitBeforeMinutes} minutos antes de la hora de fin de la clase.`, 400);
     }
-    const salidaDisponibleHasta = addMinutes(timeOnDate(now, open.horario.hora_fin), exitGraceMinutes);
+    const salidaDisponibleHasta = addMinutes(timeOnDate(now, open.horario.hora_fin), windows.exitAfterMinutes);
     if (now > salidaDisponibleHasta) {
       throw new AppError('El tiempo para marcar salida terminó. Solicite una justificación.', 400);
     }
@@ -394,7 +416,7 @@ export class AsistenciasService {
     );
     const exitDeadline = addMinutes(
       timeOnDate(current.timestamp_entrada, current.horario.hora_fin),
-      exitGraceMinutes
+      15
     );
     if (now > entryJustificationDeadline && now <= exitDeadline) {
       throw new AppError('La justificación solo puede solicitarse dentro del tiempo de marcado de la clase.', 400);
@@ -447,7 +469,8 @@ export class AsistenciasService {
       },
     });
 
-    if (!horario || !horarioPermiteIngreso(now, horario.hora_inicio, horario.hora_fin)) {
+    const windows = await getAttendanceWindows();
+    if (!horario || !horarioPermiteIngreso(now, horario.hora_inicio, horario.hora_fin, windows)) {
       throw new AppError('La justificación solo puede solicitarse dentro del tiempo de marcado de la clase.', 400);
     }
 
@@ -522,7 +545,7 @@ export class AsistenciasService {
     return registro;
   }
 
-  private async findHorarioActivo(docenteId: string, now: Date) {
+  private async findHorarioActivo(docenteId: string, now: Date, windows: AttendanceWindowSettings) {
     const diaSemana = getDiaSemana(now);
 
     const candidates = await prisma.horario.findMany({
@@ -548,7 +571,7 @@ export class AsistenciasService {
       orderBy: { hora_inicio: 'asc' },
     });
 
-    return candidates.find((horario) => horarioPermiteIngreso(now, horario.hora_inicio, horario.hora_fin)) ?? null;
+    return candidates.find((horario) => horarioPermiteIngreso(now, horario.hora_inicio, horario.hora_fin, windows)) ?? null;
   }
 
   private async findRegistroAbierto(docenteId: string) {

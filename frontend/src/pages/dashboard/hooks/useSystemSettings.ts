@@ -8,6 +8,10 @@ function getApiMessage(error: unknown, fallback: string): string {
 
 const defaultSettings: SystemSettings = {
   attendance_photo_required: false,
+  attendance_entry_before_minutes: 15,
+  attendance_entry_after_minutes: 15,
+  attendance_exit_before_minutes: 10,
+  attendance_exit_after_minutes: 15,
 };
 
 export function useSystemSettings(userRole?: string) {
@@ -26,6 +30,10 @@ export function useSystemSettings(userRole?: string) {
       setSettings({
         attendance_photo_required:
           data.data?.attendance_photo_required ?? defaultSettings.attendance_photo_required,
+        attendance_entry_before_minutes: data.data?.attendance_entry_before_minutes ?? defaultSettings.attendance_entry_before_minutes,
+        attendance_entry_after_minutes: data.data?.attendance_entry_after_minutes ?? defaultSettings.attendance_entry_after_minutes,
+        attendance_exit_before_minutes: data.data?.attendance_exit_before_minutes ?? defaultSettings.attendance_exit_before_minutes,
+        attendance_exit_after_minutes: data.data?.attendance_exit_after_minutes ?? defaultSettings.attendance_exit_after_minutes,
       });
     } catch (requestError) {
       setError(getApiMessage(requestError, 'No se pudo cargar la configuraciÃƒÂ³n del sistema.'));
@@ -48,6 +56,10 @@ export function useSystemSettings(userRole?: string) {
       setSettings({
         attendance_photo_required:
           data.data?.attendance_photo_required ?? nextSettings.attendance_photo_required,
+        attendance_entry_before_minutes: data.data?.attendance_entry_before_minutes ?? nextSettings.attendance_entry_before_minutes,
+        attendance_entry_after_minutes: data.data?.attendance_entry_after_minutes ?? nextSettings.attendance_entry_after_minutes,
+        attendance_exit_before_minutes: data.data?.attendance_exit_before_minutes ?? nextSettings.attendance_exit_before_minutes,
+        attendance_exit_after_minutes: data.data?.attendance_exit_after_minutes ?? nextSettings.attendance_exit_after_minutes,
       });
       setMessage(data.message ?? 'ConfiguraciÃƒÂ³n del sistema actualizada correctamente.');
     } catch (requestError) {

@@ -73,6 +73,10 @@ const defaultSystemSettings = {
     value: 'false',
     description: 'Exige capturar una foto del docente al marcar ingreso y salida.',
   },
+  attendance_entry_before_minutes: { label: 'Ingreso antes del inicio', value: '15', description: 'Minutos permitidos antes del inicio del horario.' },
+  attendance_entry_after_minutes: { label: 'Ingreso después del inicio', value: '15', description: 'Minutos permitidos después del inicio del horario.' },
+  attendance_exit_before_minutes: { label: 'Salida antes del fin', value: '10', description: 'Minutos permitidos antes de finalizar el horario.' },
+  attendance_exit_after_minutes: { label: 'Salida después del fin', value: '15', description: 'Minutos permitidos después de finalizar el horario.' },
 } as const;
 
 function isFullAdmin(user: AuthScope): boolean {
@@ -422,6 +426,10 @@ export class AdminService {
     return {
       attendance_photo_required:
         settings.find((setting) => setting.key === 'attendance_photo_required')?.value !== 'false',
+      attendance_entry_before_minutes: Number(settings.find((setting) => setting.key === 'attendance_entry_before_minutes')?.value ?? defaultSystemSettings.attendance_entry_before_minutes.value),
+      attendance_entry_after_minutes: Number(settings.find((setting) => setting.key === 'attendance_entry_after_minutes')?.value ?? defaultSystemSettings.attendance_entry_after_minutes.value),
+      attendance_exit_before_minutes: Number(settings.find((setting) => setting.key === 'attendance_exit_before_minutes')?.value ?? defaultSystemSettings.attendance_exit_before_minutes.value),
+      attendance_exit_after_minutes: Number(settings.find((setting) => setting.key === 'attendance_exit_after_minutes')?.value ?? defaultSystemSettings.attendance_exit_after_minutes.value),
       items: settings,
     };
   }
@@ -432,10 +440,13 @@ export class AdminService {
     }
 
     await this.ensureSystemSettings();
-    const setting = await prisma.systemSetting.update({
-      where: { key: 'attendance_photo_required' },
-      data: { value: String(data.attendance_photo_required) },
-    });
+    const [setting] = await prisma.$transaction([
+      prisma.systemSetting.update({ where: { key: 'attendance_photo_required' }, data: { value: String(data.attendance_photo_required) } }),
+      prisma.systemSetting.update({ where: { key: 'attendance_entry_before_minutes' }, data: { value: String(data.attendance_entry_before_minutes) } }),
+      prisma.systemSetting.update({ where: { key: 'attendance_entry_after_minutes' }, data: { value: String(data.attendance_entry_after_minutes) } }),
+      prisma.systemSetting.update({ where: { key: 'attendance_exit_before_minutes' }, data: { value: String(data.attendance_exit_before_minutes) } }),
+      prisma.systemSetting.update({ where: { key: 'attendance_exit_after_minutes' }, data: { value: String(data.attendance_exit_after_minutes) } }),
+    ]);
 
     await this.audit(user.id, 'UPDATE_SYSTEM_SETTINGS', 'system_settings', setting.id, ip, data);
     return this.listSystemSettings();
@@ -468,19 +479,11 @@ export class AdminService {
   }
 
   private async ensureSystemSettings(): Promise<void> {
-    await prisma.systemSetting.upsert({
-      where: { key: 'attendance_photo_required' },
-      create: {
-        key: 'attendance_photo_required',
-        label: defaultSystemSettings.attendance_photo_required.label,
-        value: defaultSystemSettings.attendance_photo_required.value,
-        description: defaultSystemSettings.attendance_photo_required.description,
-      },
-      update: {
-        label: defaultSystemSettings.attendance_photo_required.label,
-        description: defaultSystemSettings.attendance_photo_required.description,
-      },
-    });
+    await prisma.$transaction(Object.entries(defaultSystemSettings).map(([key, setting]) => prisma.systemSetting.upsert({
+      where: { key },
+      create: { key, label: setting.label, value: setting.value, description: setting.description },
+      update: { label: setting.label, description: setting.description },
+    })));
   }
 
   private async assertCanManageCarrera(carreraId: string, user: AuthScope): Promise<void> {

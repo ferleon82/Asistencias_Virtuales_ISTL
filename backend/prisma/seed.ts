@@ -76,6 +76,24 @@ async function main(): Promise<void> {
     },
   });
 
+  await prisma.user.upsert({
+    where: { email: 'talento.humano@tecnologicoloja.edu.ec' },
+    update: {
+      activo: true,
+      rol: Rol.talento_humano,
+      password_hash: passwordHash,
+    },
+    create: {
+      email: 'talento.humano@tecnologicoloja.edu.ec',
+      nombre: 'Talento',
+      apellido: 'Humano',
+      cedula: '1100000002',
+      password_hash: passwordHash,
+      rol: Rol.talento_humano,
+      activo: true,
+    },
+  });
+
   const carrera = await prisma.carrera.upsert({
     where: { codigo: 'DSW' },
     update: {},
@@ -105,6 +123,22 @@ async function main(): Promise<void> {
   });
 
   const now = nowInEcuador();
+  const periodo = await prisma.periodoAcademico.upsert({
+    where: { codigo: 'DEV-2026' },
+    update: {
+      nombre: 'Período de prueba 2026',
+      fecha_inicio: addMinutes(now, -60 * 24 * 30),
+      fecha_fin: addMinutes(now, 60 * 24 * 30),
+      activo: true,
+    },
+    create: {
+      nombre: 'Período de prueba 2026',
+      codigo: 'DEV-2026',
+      fecha_inicio: addMinutes(now, -60 * 24 * 30),
+      fecha_fin: addMinutes(now, 60 * 24 * 30),
+      activo: true,
+    },
+  });
   const existingHorario = await prisma.horario.findFirst({
     where: {
       materia_id: materia.id,
@@ -118,6 +152,8 @@ async function main(): Promise<void> {
     hora_inicio: formatTime(addMinutes(now, -5)),
     hora_fin: sameDayTimeEnd(now),
     ciclo: 'DEV-2026',
+    periodo_academico_id: periodo.id,
+    docente_id: docente.id,
     modalidad: Modalidad.virtual,
     url_aula_virtual: 'https://aula-virtual.tecnologicoloja.edu.ec',
     activo: true,
@@ -137,6 +173,7 @@ async function main(): Promise<void> {
   console.log('Seed completado.');
   console.log('Admin: admin@tecnologicoloja.edu.ec / Password123');
   console.log('Docente: docente@tecnologicoloja.edu.ec / Password123');
+  console.log('Talento Humano: talento.humano@tecnologicoloja.edu.ec / Password123');
 }
 
 main()

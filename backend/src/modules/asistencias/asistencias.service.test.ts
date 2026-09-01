@@ -14,6 +14,9 @@ vi.mock('../../config/database', () => ({
       create: vi.fn(),
       update: vi.fn(),
     },
+    registroAdministrativo: {
+      findFirst: vi.fn(),
+    },
     systemSetting: {
       findUnique: vi.fn(),
     },
@@ -130,6 +133,7 @@ describe('AsistenciasService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.systemSetting.findUnique).mockResolvedValue({ value: 'true' } as never);
+    vi.mocked(prisma.registroAdministrativo.findFirst).mockResolvedValue(null as never);
   });
 
   it('bloquea una segunda entrada para el mismo horario en el mismo dia', async () => {

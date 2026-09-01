@@ -11,6 +11,8 @@ function attendancePhotoUrl(url?: string): string {
 }
 
 interface ReportsSectionProps {
+  reportType: 'docente' | 'administrativa';
+  setReportType: Dispatch<SetStateAction<'docente' | 'administrativa'>>;
   reportFrom: string;
   setReportFrom: Dispatch<SetStateAction<string>>;
   reportTo: string;
@@ -42,6 +44,8 @@ interface ReportsSectionProps {
 }
 
 export function ReportsSection({
+  reportType,
+  setReportType,
   reportFrom,
   setReportFrom,
   reportTo,
@@ -72,6 +76,7 @@ export function ReportsSection({
   reviewJustificacion,
 }: ReportsSectionProps) {
   const isTeacherReport = userRole === 'docente';
+  const isAdministrativeReport = reportType === 'administrativa';
   const previewPageSize = 10;
   const [previewPage, setPreviewPage] = useState(1);
   const [openDatePicker, setOpenDatePicker] = useState<'from' | 'to' | null>(null);
@@ -97,10 +102,17 @@ export function ReportsSection({
         <div className="max-w-2xl">
           <h2 className="section-title">Reportes de asistencia</h2>
           <p className="section-subtitle">
-            Consulte el resumen del periodo y descargue reportes en PDF o Excel.
+            Consulte el resumen de la jornada seleccionada y descargue reportes en PDF o Excel.
           </p>
         </div>
         <div className={`grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 ${isTeacherReport ? '2xl:grid-cols-6' : '2xl:grid-cols-8'}`}>
+          <label className="min-w-0 text-sm text-slate-600">
+            Jornada
+            <select value={reportType} onChange={(event) => setReportType(event.target.value as 'docente' | 'administrativa')} className="input-control">
+              <option value="docente">Jornada docente</option>
+              <option value="administrativa">Jornada administrativa</option>
+            </select>
+          </label>
           <label className="min-w-0 text-sm text-slate-600">
             Desde
             <SpanishDatePicker
@@ -134,7 +146,7 @@ export function ReportsSection({
               ))}
             </select>
           </label>
-          {!isTeacherReport && (
+          {!isTeacherReport && !isAdministrativeReport && (
             <label className="min-w-0 text-sm text-slate-600">
               Carrera
               <select
@@ -149,7 +161,7 @@ export function ReportsSection({
               </select>
             </label>
           )}
-          <label className="min-w-0 text-sm text-slate-600">
+          {!isAdministrativeReport && <label className="min-w-0 text-sm text-slate-600">
             Materia
             <select
               value={reportMateriaId}
@@ -161,7 +173,7 @@ export function ReportsSection({
                 <option key={materia.id} value={materia.id}>{materia.codigo}</option>
               ))}
             </select>
-          </label>
+          </label>}
           {!isTeacherReport && (
             <label className="min-w-0 text-sm text-slate-600">
               Docente
@@ -177,7 +189,7 @@ export function ReportsSection({
               </select>
             </label>
           )}
-          <label className="min-w-0 text-sm text-slate-600">
+          {!isAdministrativeReport && <label className="min-w-0 text-sm text-slate-600">
             Estado
             <select
               value={reportEstado}
@@ -189,8 +201,8 @@ export function ReportsSection({
                 <option key={estado} value={estado}>{estado}</option>
               ))}
             </select>
-          </label>
-          <label className="min-w-0 text-sm text-slate-600">
+          </label>}
+          {!isAdministrativeReport && <label className="min-w-0 text-sm text-slate-600">
             Ciclo
             <select
               value={reportCiclo}
@@ -202,7 +214,7 @@ export function ReportsSection({
                 <option key={ciclo} value={ciclo}>{ciclo}</option>
               ))}
             </select>
-          </label>
+          </label>}
           <div className={`grid grid-cols-2 gap-3 sm:col-span-2 lg:col-span-3 ${isTeacherReport ? '2xl:col-span-6' : '2xl:col-span-8'} 2xl:flex 2xl:justify-end`}>
             <button
               type="button"

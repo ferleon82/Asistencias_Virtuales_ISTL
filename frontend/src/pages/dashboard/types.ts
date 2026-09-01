@@ -298,4 +298,8 @@ export interface ModulePermission {
 
 export interface SystemSettings {
   attendance_photo_required: boolean;
+  attendance_entry_before_minutes: number;
+  attendance_entry_after_minutes: number;
+  attendance_exit_before_minutes: number;
+  attendance_exit_after_minutes: number;
 }

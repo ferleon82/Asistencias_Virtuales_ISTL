@@ -85,7 +85,9 @@ model User {
   clases_recuperacion   ClaseRecuperacion[]
   notificaciones        NotificacionLog[]
   horarios_asignados    Horario[]
+  horarios_administrativos HorarioAdministrativo[]
   asignaciones_docentes AsignacionDocente[]
+  registros_administrativos RegistroAdministrativo[]
   audit_logs            AuditLog[]
   refresh_tokens        RefreshToken[]
 
@@ -146,6 +148,7 @@ model PeriodoAcademico {
 
   horarios              Horario[]
   asignaciones_docentes AsignacionDocente[]
+  horarios_administrativos HorarioAdministrativo[]
 
   @@index([activo])
   @@index([fecha_inicio, fecha_fin])
@@ -209,6 +212,33 @@ model Horario {
   @@map("horarios")
 }
 
+model HorarioAdministrativo {
+  id                   String   @id @default(uuid())
+  docente_id           String
+  periodo_academico_id String
+  dia_semana           DiaSemana
+  hora_inicio          String
+  hora_fin             String
+  jornada              Jornada  @default(matutina)
+  modalidad            Modalidad @default(presencial)
+  ubicacion            String?
+  descripcion          String?  @db.Text
+  activo               Boolean  @default(true)
+  fecha_inicio         DateTime @db.Date
+  fecha_fin            DateTime @db.Date
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  docente             User             @relation(fields: [docente_id], references: [id], onDelete: Restrict)
+  periodo_academico   PeriodoAcademico @relation(fields: [periodo_academico_id], references: [id], onDelete: Cascade)
+  registros           RegistroAdministrativo[]
+
+  @@index([docente_id, dia_semana, activo])
+  @@index([periodo_academico_id])
+  @@index([fecha_inicio, fecha_fin])
+  @@map("horarios_administrativos")
+}
+
 model RegistroAsistencia {
   id         String @id @default(uuid())
   docente_id String
@@ -245,6 +275,39 @@ model RegistroAsistencia {
   @@index([estado])
   @@index([timestamp_entrada])
   @@map("registros_asistencia")
+}
+
+model RegistroAdministrativo {
+  id                        String    @id @default(uuid())
+  docente_id                String
+  horario_administrativo_id String
+  timestamp_entrada         DateTime?
+  timestamp_salida          DateTime?
+  ip_entrada                String?
+  ip_salida                 String?
+  foto_entrada_url          String?
+  foto_salida_url           String?
+  lat_entrada               Decimal?  @db.Decimal(10, 8)
+  lng_entrada               Decimal?  @db.Decimal(11, 8)
+  precision_entrada_m       Int?
+  lat_salida                Decimal?  @db.Decimal(10, 8)
+  lng_salida                Decimal?  @db.Decimal(11, 8)
+  precision_salida_m        Int?
+  estado                    EstadoAsistencia @default(ausente)
+  justificacion             String?   @db.Text
+  user_agent                String?
+  created_at                DateTime  @default(now())
+  updated_at                DateTime  @updatedAt
+
+  docente                User                  @relation(fields: [docente_id], references: [id], onDelete: Restrict)
+  horario_administrativo HorarioAdministrativo @relation(fields: [horario_administrativo_id], references: [id], onDelete: Restrict)
+
+  @@unique([docente_id, horario_administrativo_id, timestamp_entrada])
+  @@index([docente_id])
+  @@index([horario_administrativo_id])
+  @@index([estado])
+  @@index([timestamp_entrada])
+  @@map("registros_administrativos")
 }
 
 model ClaseRecuperacion {

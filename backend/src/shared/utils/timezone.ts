@@ -48,7 +48,9 @@ export function formatEcuador(date: Date | string, fmt = 'dd/MM/yyyy HH:mm'): st
 export function calcularEstadoAsistencia(
   markedAt: Date,
   scheduleStart: string, // "HH:mm"
-  scheduleDate: Date
+  scheduleDate: Date,
+  entryBeforeMinutes = 15,
+  entryAfterMinutes = 15
 ): 'puntual' | 'tardanza' | 'fuera_de_ventana' {
   const [hours, minutes] = scheduleStart.split(':').map(Number);
 
@@ -56,9 +58,8 @@ export function calcularEstadoAsistencia(
   const classStart = new Date(scheduleDate);
   classStart.setHours(hours, minutes, 0, 0);
 
-  // Ventana permitida: -15 min antes hasta +15 min después
-  const windowStart = addMinutes(classStart, -15);
-  const windowEnd = addMinutes(classStart, 15);
+  const windowStart = addMinutes(classStart, -entryBeforeMinutes);
+  const windowEnd = addMinutes(classStart, entryAfterMinutes);
 
   if (markedAt < windowStart || markedAt > windowEnd) {
     return 'fuera_de_ventana';
@@ -77,9 +78,9 @@ export function calcularEstadoAsistencia(
 /**
  * Verifica si la hora actual está dentro de la ventana de marcado (±15 min).
  */
-export function estaEnVentanaMarcado(scheduleStart: string, scheduleDate: Date): boolean {
+export function estaEnVentanaMarcado(scheduleStart: string, scheduleDate: Date, entryBeforeMinutes = 15, entryAfterMinutes = 15): boolean {
   const now = nowInEcuador();
-  const resultado = calcularEstadoAsistencia(now, scheduleStart, scheduleDate);
+  const resultado = calcularEstadoAsistencia(now, scheduleStart, scheduleDate, entryBeforeMinutes, entryAfterMinutes);
   return resultado !== 'fuera_de_ventana';
 }
 

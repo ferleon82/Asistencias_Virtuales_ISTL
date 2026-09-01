@@ -7,7 +7,7 @@ const defaultPermissions: Record<string, string[]> = {
   coordinador: ['academic', 'schedules', 'reports'],
   tics: ['analytics', 'users', 'academic', 'schedules', 'reports', 'system_status', 'module_permissions'],
   rectorado: ['analytics', 'users', 'academic', 'schedules', 'reports'],
-  talento_humano: ['analytics', 'users', 'academic', 'schedules', 'reports'],
+  talento_humano: ['analytics', 'users', 'academic', 'schedules', 'reports', 'administrative_hours'],
 };
 
 function getApiMessage(error: unknown, fallback: string): string {

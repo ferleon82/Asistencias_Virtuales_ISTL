@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/axios';
 import { AcademicSection } from './dashboard/AcademicSection';
+import { AdministrativeHoursSection } from './dashboard/AdministrativeHoursSection';
+import { AdministrativeDaySection } from './dashboard/AdministrativeDaySection';
 import { AnalyticsDashboard } from './dashboard/AnalyticsDashboard';
 import { CameraCaptureModal } from './dashboard/CameraCaptureModal';
 import { DashboardFooter } from './dashboard/DashboardFooter';
@@ -20,6 +22,8 @@ import { useModulePermissions } from './dashboard/hooks/useModulePermissions';
 import { useReports } from './dashboard/hooks/useReports';
 import { useSystemSettings } from './dashboard/hooks/useSystemSettings';
 import { useTeacherAttendance } from './dashboard/hooks/useTeacherAttendance';
+import { useAdministrativeAttendance } from './dashboard/hooks/useAdministrativeAttendance';
+import { useAdministrativeDay } from './dashboard/hooks/useAdministrativeDay';
 import { useUsers } from './dashboard/hooks/useUsers';
 import type {
   CarreraForm,
@@ -71,6 +75,7 @@ export default function Dashboard() {
   const canManageSchedules = hasModule('schedules');
   const canViewReports = hasModule('reports');
   const canViewSystemStatus = hasModule('system_status');
+  const canManageAdministrativeHours = user?.rol === 'talento_humano' && hasModule('administrative_hours');
   const canConfigureModules = user?.rol === 'tics' && hasModule('module_permissions');
   const canLoadReferenceData = canViewInstitutionalAnalytics || canManageAcademic || canManageSchedules || canViewReports;
   const [adminMessage, setAdminMessage] = useState('');
@@ -118,7 +123,7 @@ export default function Dashboard() {
     activo: true,
   }));
   const [editingPeriodoId, setEditingPeriodoId] = useState<string | null>(null);
-  const [cameraAction, setCameraAction] = useState<'entrada' | 'salida' | null>(null);
+  const [cameraAction, setCameraAction] = useState<{ action: 'entrada' | 'salida'; scope: 'academic' | 'administrative' } | null>(null);
   const [activeModuleTab, setActiveModuleTab] = useState('');
   const { carreras, materias, docentes, periodosAcademicos, horarios, loadAdminData } = useAdminData({
     canManageSchedules: canLoadReferenceData,
@@ -146,6 +151,8 @@ export default function Dashboard() {
     setReportCiclo,
     reportPeriodoAcademicoId,
     setReportPeriodoAcademicoId,
+    reportType,
+    setReportType,
     reportMaterias,
     reportCiclos,
     resetReportFilters,
@@ -194,6 +201,20 @@ export default function Dashboard() {
     diaSemanaEcuador,
     loadReportSummary,
   });
+  const {
+    administrativeState,
+    administrativeCanMarkExit,
+    administrativeLoading,
+    administrativeError,
+    administrativeMessage,
+    markAdministrative,
+  } = useAdministrativeAttendance(user?.rol, loadReportSummary);
+  const {
+    administrativeSchedulesToday,
+    administrativeHistory,
+    administrativeDayError,
+    loadAdministrativeDay,
+  } = useAdministrativeDay(user?.rol, diaSemanaEcuador);
 
   const handleLogout = async () => {
     await logout();
@@ -201,8 +222,8 @@ export default function Dashboard() {
   };
 
   const refreshInstitutionalData = useCallback(async () => {
-    await Promise.all([loadAdminData(), loadReportSummary()]);
-  }, [loadAdminData, loadReportSummary]);
+    await Promise.all([loadAdminData(), loadReportSummary(), loadAdministrativeDay()]);
+  }, [loadAdminData, loadAdministrativeDay, loadReportSummary]);
 
   const {
     usuarios,
@@ -551,27 +572,41 @@ export default function Dashboard() {
   const confirmCameraAttendance = async (photoBase64: string) => {
     if (!cameraAction) return;
 
-    await markAttendance(cameraAction, photoBase64);
+    if (cameraAction.scope === 'academic') {
+      await markAttendance(cameraAction.action, photoBase64);
+    } else {
+      await markAdministrative(cameraAction.action, photoBase64);
+    }
     setCameraAction(null);
   };
 
   const handleAttendanceAction = async (action: 'entrada' | 'salida') => {
     if (estadoAsistencia?.attendancePhotoRequired ?? systemSettings.attendance_photo_required) {
-      setCameraAction(action);
+      setCameraAction({ action, scope: 'academic' });
       return;
     }
 
     await markAttendance(action);
   };
 
+  const handleAdministrativeAction = async (action: 'entrada' | 'salida') => {
+    if (administrativeState?.attendancePhotoRequired ?? systemSettings.attendance_photo_required) {
+      setCameraAction({ action, scope: 'administrative' });
+      return;
+    }
+    await markAdministrative(action);
+  };
+
   const moduleTabs = [
     canViewTeacherAttendance && { key: 'teacher_attendance', label: 'Marcar asistencia' },
-    canViewTeacherDay && { key: 'teacher_day', label: 'Mi jornada' },
+    canViewTeacherDay && { key: 'teacher_academic_day', label: 'Mi jornada docente' },
+    canViewTeacherDay && { key: 'teacher_administrative_day', label: 'Mi jornada administrativa' },
     canViewInstitutionalAnalytics && { key: 'analytics', label: 'Dashboard' },
     canManageUsers && { key: 'users', label: 'Usuarios' },
     canConfigureModules && { key: 'settings', label: 'Configuración' },
     canManageAcademic && { key: 'academic', label: 'Académico' },
     canManageSchedules && { key: 'schedules', label: 'Horarios' },
+    canManageAdministrativeHours && { key: 'administrative_hours', label: 'Horas administrativas' },
     canViewReports && { key: 'reports', label: 'Reportes' },
     canViewSystemStatus && { key: 'system_status', label: 'Estado' },
   ].filter(Boolean) as Array<{ key: string; label: string }>;
@@ -796,12 +831,36 @@ export default function Dashboard() {
             </div>
           )}
 
+          {activeModuleTab === 'teacher_attendance' && canViewTeacherAttendance && (
+            <div className="rounded-lg border border-teal-200 bg-teal-50 p-6 shadow-sm lg:col-span-3 xl:col-span-1">
+              <h2 className="font-brand text-xl font-bold text-brand-navy">Hora administrativa</h2>
+              <p className="mt-1 text-sm text-slate-600">Registre el ingreso o salida del bloque administrativo activo.</p>
+              <div className="mt-5 rounded-md border border-teal-200 bg-white p-3">
+                <p className="text-xs font-medium uppercase text-teal-700">Bloque activo</p>
+                {administrativeState?.horarioActivo ? (
+                  <div className="mt-1 text-sm text-slate-700">
+                    <p className="font-semibold">{administrativeState.horarioActivo.descripcion || 'Actividad administrativa'}</p>
+                    <p className="text-xs text-slate-500">{administrativeState.horarioActivo.hora_inicio} - {administrativeState.horarioActivo.hora_fin}{administrativeState.horarioActivo.ubicacion ? ` · ${administrativeState.horarioActivo.ubicacion}` : ''}</p>
+                  </div>
+                ) : <p className="mt-1 text-sm text-slate-500">Sin bloque administrativo dentro de la ventana de marcado.</p>}
+                {administrativeState?.registroAbierto && <p className="mt-2 text-xs text-teal-700">Ingreso abierto desde {new Date(administrativeState.registroAbierto.timestamp_entrada ?? '').toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}</p>}
+                {!administrativeCanMarkExit && administrativeState?.salidaDisponibleDesde && <p className="mt-1 text-xs text-slate-500">Salida disponible desde {new Date(administrativeState.salidaDisponibleDesde).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}</p>}
+              </div>
+              {administrativeMessage && <div className="mt-3 rounded-md border border-teal-200 bg-white p-3 text-sm text-teal-700">{administrativeMessage}</div>}
+              {administrativeError && <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{administrativeError}</div>}
+              <div className="mt-4 space-y-3">
+                <button type="button" onClick={() => void handleAdministrativeAction('entrada')} disabled={administrativeLoading || !administrativeState?.puedeMarcarEntrada} className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50">{administrativeLoading ? 'Registrando...' : 'Marcar ingreso administrativo'}</button>
+                <button type="button" onClick={() => void handleAdministrativeAction('salida')} disabled={administrativeLoading || !administrativeCanMarkExit} title={administrativeState?.salidaBloqueadaMotivo ?? undefined} className="btn-secondary w-full disabled:cursor-not-allowed disabled:opacity-50">{administrativeLoading ? 'Registrando...' : 'Marcar salida administrativa'}</button>
+              </div>
+            </div>
+          )}
+
           {activeModuleTab === 'system_status' && canViewSystemStatus && (
             <SystemStatusCard className="lg:col-span-3" />
           )}
         </div>
 
-        {activeModuleTab === 'teacher_day' && canViewTeacherDay && (
+        {activeModuleTab === 'teacher_academic_day' && canViewTeacherDay && (
           <TeacherDaySection
             estadoAsistencia={estadoAsistencia}
             diaSemanaEcuador={diaSemanaEcuador}
@@ -815,6 +874,19 @@ export default function Dashboard() {
             attendanceLoading={attendanceLoading}
             sendJustificacion={sendJustificacion}
           />
+        )}
+
+        {activeModuleTab === 'teacher_administrative_day' && canViewTeacherDay && (
+          <AdministrativeDaySection
+            diaSemanaEcuador={diaSemanaEcuador}
+            schedules={administrativeSchedulesToday}
+            records={administrativeHistory}
+            error={administrativeDayError}
+          />
+        )}
+
+        {activeModuleTab === 'administrative_hours' && canManageAdministrativeHours && (
+          <AdministrativeHoursSection docentes={docentes} periodos={periodosAcademicos} />
         )}
 
         {activeModuleTab === 'analytics' && canViewInstitutionalAnalytics && (
@@ -946,6 +1018,8 @@ export default function Dashboard() {
 
         {activeModuleTab === 'reports' && canViewReports && (
           <ReportsSection
+            reportType={reportType}
+            setReportType={setReportType}
             reportFrom={reportFrom}
             setReportFrom={setReportFrom}
             reportTo={reportTo}
@@ -979,8 +1053,8 @@ export default function Dashboard() {
 
         {cameraAction && (
           <CameraCaptureModal
-            action={cameraAction}
-            loading={attendanceLoading}
+            action={cameraAction.action}
+            loading={cameraAction.scope === 'academic' ? attendanceLoading : administrativeLoading}
             onCancel={() => setCameraAction(null)}
             onConfirm={(photoBase64) => void confirmCameraAttendance(photoBase64)}
           />

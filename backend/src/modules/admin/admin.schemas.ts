@@ -90,6 +90,10 @@ export const modulePermissionsSchema = z.object({
 
 export const systemSettingsSchema = z.object({
   attendance_photo_required: z.boolean(),
+  attendance_entry_before_minutes: z.coerce.number().int().min(0).max(120),
+  attendance_entry_after_minutes: z.coerce.number().int().min(0).max(120),
+  attendance_exit_before_minutes: z.coerce.number().int().min(0).max(120),
+  attendance_exit_after_minutes: z.coerce.number().int().min(0).max(120),
 });
 
 export type CarreraInput = z.infer<typeof carreraSchema>;

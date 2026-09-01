@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 export const reporteQuerySchema = z
   .object({
+    tipo: z.enum(['docente', 'administrativa']).default('docente'),
     carrera_id: z.string().uuid().optional(),
     materia_id: z.string().uuid().optional(),
     periodo_academico_id: z.string().uuid().optional(),

@@ -35,6 +35,7 @@ export function useReports({ materias, periodosAcademicos }: UseReportsInput) {
   const [reportEstado, setReportEstado] = useState('');
   const [reportCiclo, setReportCiclo] = useState('');
   const [reportPeriodoAcademicoId, setReportPeriodoAcademicoId] = useState('');
+  const [reportType, setReportType] = useState<'docente' | 'administrativa'>('docente');
   const [datesInitializedFromPeriod, setDatesInitializedFromPeriod] = useState(false);
 
   const reportMaterias = useMemo(
@@ -109,6 +110,7 @@ export function useReports({ materias, periodosAcademicos }: UseReportsInput) {
 
   const buildReportParams = useCallback(() => {
     const params = new URLSearchParams();
+    params.set('tipo', reportType);
     if (reportFrom) params.set('fecha_inicio', reportFrom);
     if (reportTo) params.set('fecha_fin', reportTo);
     if (reportCarreraId) params.set('carrera_id', reportCarreraId);
@@ -127,6 +129,7 @@ export function useReports({ materias, periodosAcademicos }: UseReportsInput) {
     reportMateriaId,
     reportPeriodoAcademicoId,
     reportTo,
+    reportType,
   ]);
 
   const loadReportSummary = useCallback(async () => {
@@ -156,6 +159,14 @@ export function useReports({ materias, periodosAcademicos }: UseReportsInput) {
       setReportCiclo('');
     }
   }, [reportCiclo, reportCiclos]);
+
+  useEffect(() => {
+    if (reportType !== 'administrativa') return;
+    setReportCarreraId('');
+    setReportMateriaId('');
+    setReportCiclo('');
+    setReportEstado('');
+  }, [reportType]);
 
   const reviewJustificacion = async (id: string, action: 'aprobar' | 'rechazar') => {
     setReportLoading(true);
@@ -219,6 +230,8 @@ export function useReports({ materias, periodosAcademicos }: UseReportsInput) {
     setReportCiclo,
     reportPeriodoAcademicoId,
     setReportPeriodoAcademicoId: updateReportPeriodoAcademicoId,
+    reportType,
+    setReportType,
     periodosAcademicos,
     reportMaterias,
     reportCiclos,

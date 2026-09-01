@@ -2,6 +2,7 @@ import { DiaSemana, EstadoAsistencia, Prisma, Rol } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { prisma } from '../../config/database';
+import { AppError } from '../../shared/middleware/errorHandler';
 import type { ReporteQueryInput } from './reportes.schemas';
 
 interface AuthScope {
@@ -39,6 +40,7 @@ interface ReportRow {
 }
 
 interface ReportSummaryData {
+  tipo: 'docente' | 'administrativa';
   periodo: {
     fecha_inicio: string;
     fecha_fin: string;
@@ -80,6 +82,7 @@ interface ReportPeriodSummary {
 
 type HorarioProgramado = Awaited<ReturnType<typeof fetchHorariosProgramados>>[number];
 type RegistroAsistencia = Awaited<ReturnType<typeof fetchRegistros>>[number];
+type RegistroAdministrativo = Awaited<ReturnType<typeof fetchRegistrosAdministrativos>>[number];
 
 const asistenciaInclude = {
   docente: {
@@ -109,6 +112,11 @@ const asistenciaInclude = {
     },
   },
 } satisfies Prisma.RegistroAsistenciaInclude;
+
+const administrativaInclude = {
+  docente: { select: { id: true, nombre: true, apellido: true, email: true } },
+  horario_administrativo: { include: { periodo_academico: true } },
+} satisfies Prisma.RegistroAdministrativoInclude;
 
 function startOfDay(date: Date): Date {
   const value = new Date(date);
@@ -311,7 +319,7 @@ function drawPdfHeader(document: PDFKit.PDFDocument, data: ReportSummaryData): v
   document
     .fillColor('#111827')
     .fontSize(11)
-    .text('Reporte de Asistencia Docente', 360, 40, {
+    .text(data.tipo === 'administrativa' ? 'Reporte de Jornada Administrativa' : 'Reporte de Asistencia Docente', 360, 40, {
       width: 195,
       align: 'right',
     });
@@ -554,6 +562,49 @@ async function fetchHorariosProgramados(where: Prisma.HorarioWhereInput) {
   });
 }
 
+async function fetchRegistrosAdministrativos(where: Prisma.RegistroAdministrativoWhereInput) {
+  return prisma.registroAdministrativo.findMany({
+    where,
+    include: administrativaInclude,
+    orderBy: [{ timestamp_entrada: 'desc' }, { created_at: 'desc' }],
+  });
+}
+
+async function fetchHorariosAdministrativos(where: Prisma.HorarioAdministrativoWhereInput) {
+  return prisma.horarioAdministrativo.findMany({ where, include: { periodo_academico: true } });
+}
+
+function toAdministrativeRows(registros: RegistroAdministrativo[]): ReportRow[] {
+  return registros.map((registro) => ({
+    id: registro.id,
+    docente: `${registro.docente.nombre} ${registro.docente.apellido}`,
+    email: registro.docente.email,
+    carrera: 'Administrativa',
+    materia: registro.horario_administrativo.descripcion || 'Actividad administrativa',
+    ciclo: '-',
+    periodo_academico: registro.horario_administrativo.periodo_academico.nombre,
+    paralelo: '-',
+    dia: registro.horario_administrativo.dia_semana,
+    horario: `${registro.horario_administrativo.hora_inicio} - ${registro.horario_administrativo.hora_fin}`,
+    entrada: formatDateTime(registro.timestamp_entrada),
+    salida: formatDateTime(registro.timestamp_salida),
+    estado: registro.estado,
+    justificacion: registro.justificacion ?? '',
+    ip_entrada: registro.ip_entrada ?? '',
+    foto_entrada_url: registro.foto_entrada_url ?? '',
+    foto_salida_url: registro.foto_salida_url ?? '',
+    lat: registro.lat_entrada ? Number(registro.lat_entrada) : null,
+    lng: registro.lng_entrada ? Number(registro.lng_entrada) : null,
+    precision_m: registro.precision_entrada_m,
+    lat_entrada: registro.lat_entrada ? Number(registro.lat_entrada) : null,
+    lng_entrada: registro.lng_entrada ? Number(registro.lng_entrada) : null,
+    precision_entrada_m: registro.precision_entrada_m,
+    lat_salida: registro.lat_salida ? Number(registro.lat_salida) : null,
+    lng_salida: registro.lng_salida ? Number(registro.lng_salida) : null,
+    precision_salida_m: registro.precision_salida_m,
+  }));
+}
+
 function addScheduledSession(
   scheduledSessions: Set<string>,
   horario: HorarioProgramado | RegistroAsistencia['horario'],
@@ -605,6 +656,13 @@ function addPresentSession(
 
 export class ReportesService {
   async resumen(filters: ReporteQueryInput, user: AuthScope) {
+    if (filters.tipo === 'administrativa') {
+      return this.resumenAdministrativa(filters, user);
+    }
+    return this.resumenDocente(filters, user);
+  }
+
+  private async resumenDocente(filters: ReporteQueryInput, user: AuthScope) {
     const scoped = scopedFilters(filters, user);
     const { from, to } = await resolveRange(scoped);
     const where: Prisma.RegistroAsistenciaWhereInput = {
@@ -676,6 +734,7 @@ export class ReportesService {
     });
 
     return {
+      tipo: 'docente' as const,
       periodo: {
         fecha_inicio: from.toISOString(),
         fecha_fin: to.toISOString(),
@@ -689,6 +748,84 @@ export class ReportesService {
       ausente: byEstado.ausente + Math.max(scheduledSessions.size - presentSessions.size, 0),
       registros: toRows(registros),
       porCarrera: Array.from(porCarreraMap.values()).sort((a, b) => a.carrera.localeCompare(b.carrera)),
+      porPeriodo: Array.from(porPeriodoMap.values()),
+    };
+  }
+
+  private async resumenAdministrativa(filters: ReporteQueryInput, user: AuthScope): Promise<ReportSummaryData> {
+    if (user.rol !== Rol.docente && user.rol !== Rol.talento_humano) {
+      throw new AppError('Solo Talento Humano y el docente pueden consultar reportes administrativos.', 403);
+    }
+    const scoped = scopedFilters(filters, user);
+    const { from, to } = await resolveRange(scoped);
+    const scheduleWhere: Prisma.HorarioAdministrativoWhereInput = {
+      activo: true,
+      docente_id: scoped.docente_id,
+      periodo_academico_id: scoped.periodo_academico_id,
+      fecha_inicio: { lte: to },
+      fecha_fin: { gte: from },
+    };
+    const [registros, horarios] = await Promise.all([
+      fetchRegistrosAdministrativos({
+        docente_id: scoped.docente_id,
+        estado: scoped.estado,
+        timestamp_entrada: { gte: from, lte: to },
+        horario_administrativo: scoped.periodo_academico_id ? { periodo_academico_id: scoped.periodo_academico_id } : undefined,
+      }),
+      fetchHorariosAdministrativos(scheduleWhere),
+    ]);
+    const byEstado = registros.reduce<Record<EstadoAsistencia, number>>((acc, registro) => {
+      acc[registro.estado] += 1;
+      return acc;
+    }, { puntual: 0, tardanza: 0, ausente: 0, justificado: 0 });
+    const scheduledSessions = new Set<string>();
+    const presentSessions = new Set<string>();
+    const porPeriodoMap = new Map<string, ReportPeriodSummary>();
+    eachDay(from, to).forEach((day) => porPeriodoMap.set(dateKey(day), emptyPeriodSummary(dateLabel(day))));
+    horarios.forEach((horario) => {
+      scheduledDatesForHorario(from, to, horario.dia_semana).forEach((scheduledDate) => {
+        const key = `${horario.id}:${scheduledDate}`;
+        scheduledSessions.add(key);
+        const summary = porPeriodoMap.get(scheduledDate) ?? emptyPeriodSummary(dateLabel(new Date(`${scheduledDate}T00:00:00-05:00`)));
+        summary.programadas += 1;
+        porPeriodoMap.set(scheduledDate, summary);
+      });
+    });
+    registros.forEach((registro) => {
+      if (!registro.timestamp_entrada) return;
+      const date = dateKey(registro.timestamp_entrada);
+      const key = `${registro.horario_administrativo_id}:${date}`;
+      const isFirstEntryForBlock = !presentSessions.has(key);
+      presentSessions.add(key);
+      const summary = porPeriodoMap.get(date) ?? emptyPeriodSummary(dateLabel(registro.timestamp_entrada));
+      summary.registros += 1;
+      summary[registro.estado] += 1;
+      if (isFirstEntryForBlock) {
+        summary.presentes += 1;
+      }
+      porPeriodoMap.set(date, summary);
+    });
+    porPeriodoMap.forEach((summary) => { summary.ausente += Math.max(summary.programadas - summary.presentes, 0); });
+    const carrera = emptyCareerSummary('Jornada administrativa', 'ADM');
+    carrera.programadas = scheduledSessions.size;
+    carrera.registros = registros.length;
+    carrera.presentes = presentSessions.size;
+    carrera.puntual = byEstado.puntual;
+    carrera.tardanza = byEstado.tardanza;
+    carrera.justificado = byEstado.justificado;
+    carrera.ausente = byEstado.ausente + Math.max(scheduledSessions.size - presentSessions.size, 0);
+    return {
+      tipo: 'administrativa',
+      periodo: { fecha_inicio: from.toISOString(), fecha_fin: to.toISOString() },
+      totalProgramadas: scheduledSessions.size,
+      totalRegistros: registros.length,
+      presentes: presentSessions.size,
+      puntual: byEstado.puntual,
+      tardanza: byEstado.tardanza,
+      justificado: byEstado.justificado,
+      ausente: carrera.ausente,
+      registros: toAdministrativeRows(registros),
+      porCarrera: [carrera],
       porPeriodo: Array.from(porPeriodoMap.values()),
     };
   }
