@@ -2,31 +2,34 @@ import PDFDocument from 'pdfkit';
 import { formatDateTime, formatLocation, googleMapsUrl } from './reportes.format';
 import type { ReportRow, ReportSummaryData } from './reportes.types';
 
-function drawPdfFooter(document: PDFKit.PDFDocument): void {
-  const bottom = document.page.height - 34;
-  document
-    .save()
-    .moveTo(40, bottom - 8)
-    .lineTo(document.page.width - 40, bottom - 8)
-    .strokeColor('#e2e8f0')
-    .lineWidth(1)
-    .stroke()
-    .fillColor('#64748b')
-    .fontSize(8)
-    .text('Sistema de Asistencia Virtual Docente - ISTL', 40, bottom, {
-      width: document.page.width - 80,
-      align: 'left',
-    })
-    .text(`Página ${document.bufferedPageRange().count}`, 40, bottom, {
-      width: document.page.width - 80,
-      align: 'right',
-    })
-    .restore();
-}
+/**
+ * Dibuja el pie en todas las páginas una vez terminado el documento, cuando ya
+ * se conoce el total. El pie queda por debajo del margen inferior, así que se
+ * anula el margen mientras se escribe para que PDFKit no abra páginas nuevas.
+ */
+function drawPdfFooters(document: PDFKit.PDFDocument): void {
+  const { start, count } = document.bufferedPageRange();
 
-function addPdfPage(document: PDFKit.PDFDocument): void {
-  drawPdfFooter(document);
-  document.addPage();
+  for (let index = start; index < start + count; index += 1) {
+    document.switchToPage(index);
+    const bottomMargin = document.page.margins.bottom;
+    document.page.margins.bottom = 0;
+
+    const bottom = document.page.height - 34;
+    const width = document.page.width - 80;
+    document
+      .moveTo(40, bottom - 8)
+      .lineTo(document.page.width - 40, bottom - 8)
+      .strokeColor('#e2e8f0')
+      .lineWidth(1)
+      .stroke()
+      .fillColor('#64748b')
+      .fontSize(8)
+      .text('Sistema de Asistencia Virtual Docente - ISTL', 40, bottom, { width, align: 'left', lineBreak: false })
+      .text(`Página ${index - start + 1} de ${count}`, 40, bottom, { width, align: 'right', lineBreak: false });
+
+    document.page.margins.bottom = bottomMargin;
+  }
 }
 
 function drawPdfHeader(document: PDFKit.PDFDocument, data: ReportSummaryData): void {
@@ -169,7 +172,7 @@ export function renderReportPdf(data: ReportSummaryData): Promise<Buffer> {
   } else {
     data.registros.forEach((row, index) => {
       if (y > document.page.height - 84) {
-        addPdfPage(document);
+        document.addPage();
         drawPdfHeader(document, data);
         document.fillColor('#0b3358').fontSize(12).text('Detalle de marcaciones', 40, 126);
         y = 148;
@@ -181,7 +184,7 @@ export function renderReportPdf(data: ReportSummaryData): Promise<Buffer> {
     });
   }
 
-  drawPdfFooter(document);
+  drawPdfFooters(document);
   document.end();
 
   return new Promise((resolve) => {

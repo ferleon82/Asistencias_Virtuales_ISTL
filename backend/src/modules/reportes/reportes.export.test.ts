@@ -69,11 +69,13 @@ describe('exportación de reportes', () => {
   it('el PDF es válido y muestra un aviso cuando no hay registros', async () => {
     const pdf = await renderReportPdf(summary([]));
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
-    expect(pageCount(pdf)).toBeGreaterThanOrEqual(1);
+    expect(pageCount(pdf)).toBe(1);
   });
 
-  it('el PDF pagina el detalle cuando hay muchos registros', async () => {
+  it('el PDF pagina el detalle sin agregar páginas en blanco para el pie', async () => {
+    // 14 filas en la primera página y 16 en las siguientes: 60 filas = 4 páginas.
+    // Antes el pie abría dos páginas extra por cada página de contenido.
     const pdf = await renderReportPdf(summary(Array.from({ length: 60 }, (_, i) => row(i))));
-    expect(pageCount(pdf)).toBeGreaterThan(1);
+    expect(pageCount(pdf)).toBe(4);
   });
 });
