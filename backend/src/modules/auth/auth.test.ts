@@ -135,6 +135,17 @@ describe('Auth Schemas', async () => {
       expect(result.success).toBe(true);
     });
 
+    it('normaliza el correo a minúsculas y sin espacios', () => {
+      const result = loginSchema.safeParse({
+        email: '  JDoe@TecnologicoLoja.edu.ec ',
+        password: 'Password123',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.email).toBe('jdoe@tecnologicoloja.edu.ec');
+      }
+    });
+
     it('rechaza correos no institucionales', () => {
       const result = loginSchema.safeParse({
         email: 'jdoe@gmail.com',

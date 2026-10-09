@@ -4,7 +4,9 @@ import { z } from 'zod';
 export const loginSchema = z.object({
   email: z
     .string()
+    .trim()
     .email('Email inválido')
+    .toLowerCase()
     .refine((email) => email.endsWith('@tecnologicoloja.edu.ec'), {
       message: 'Debe usar su correo institucional (@tecnologicoloja.edu.ec)',
     }),
