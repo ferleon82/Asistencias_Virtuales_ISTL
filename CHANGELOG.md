@@ -6,6 +6,25 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Correcciones criticas (fase 1 del refactor)
+
+- La API confia en los saltos de proxy configurados en `TRUST_PROXY`
+  (Render = 1). Los limites de peticiones y de intentos de login ahora se
+  aplican por usuario y no a toda la institucion, y la IP de auditoria ya no
+  puede falsificarse con `X-Forwarded-For`.
+- Las marcaciones de entrada y salida (clases y jornada administrativa) se
+  procesan con un bloqueo por docente para evitar registros duplicados por
+  doble clic o reintentos.
+- La salida de clase guarda el GPS en `lat_salida`/`lng_salida`.
+- Reportes: las sesiones programadas respetan la vigencia de cada horario, las
+  clases que aun no inician no cuentan como ausencias y las justificaciones sin
+  marcacion aparecen en el detalle. Las justificadas aprobadas ya no se cuentan
+  como ausentes.
+- Reportes por periodo academico usan las fechas reales del periodo.
+- Un horario de clase ya no puede cruzarse con una hora administrativa.
+- El login con contrasena acepta el correo con mayusculas o espacios.
+- Sin migraciones de base de datos.
+
 ### Paralelos y ubicacion por marcacion
 
 - Se incorporo el paralelo `A`, `B`, `C` o `D` a las asignaciones docentes y
