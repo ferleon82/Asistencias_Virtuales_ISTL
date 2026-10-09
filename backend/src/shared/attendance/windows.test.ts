@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { defaultAttendanceWindows as windows } from './settings';
 import { bloqueActivo, estadoEntrada, marcacionAbiertaVigente, permiteEntrada, ventanaSalida } from './windows';
 
-const at = (time: string) => new Date(`2026-10-05T${time}:00-05:00`);
+const at = (time: string) => new Date(`2026-10-05T${time.length === 5 ? `${time}:00` : time}-05:00`);
 
 describe('ventanas de marcado', () => {
   it.each([
     ['07:44', 'fuera_de_ventana'],
     ['07:45', 'puntual'],
     ['08:05', 'puntual'],
+    ['08:05:30', 'puntual'],
+    ['08:05:59', 'puntual'],
     ['08:06', 'tardanza'],
     ['08:15', 'tardanza'],
     ['08:16', 'fuera_de_ventana'],

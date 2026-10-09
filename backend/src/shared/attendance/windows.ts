@@ -1,7 +1,10 @@
 import { addMinutes, atEcuadorTime } from './clock';
 import type { AttendanceWindows } from './settings';
 
-/** Minutos desde el inicio dentro de los cuales la entrada es puntual. */
+/**
+ * Minutos completos de tolerancia: es puntual hasta el último segundo del
+ * minuto 5 (08:05:59 en una clase de 08:00), como en la regla original.
+ */
 export const PUNTUAL_TOLERANCE_MINUTES = 5;
 
 export type EstadoEntrada = 'puntual' | 'tardanza' | 'fuera_de_ventana';
@@ -19,7 +22,7 @@ export function estadoEntrada(at: Date, horaInicio: string, windows: AttendanceW
     return 'fuera_de_ventana';
   }
 
-  return at <= addMinutes(inicio, PUNTUAL_TOLERANCE_MINUTES) ? 'puntual' : 'tardanza';
+  return at < addMinutes(inicio, PUNTUAL_TOLERANCE_MINUTES + 1) ? 'puntual' : 'tardanza';
 }
 
 /** El bloque admite marcar entrada en `now`: dentro de la ventana y sin haber terminado. */
