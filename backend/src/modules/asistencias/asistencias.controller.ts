@@ -8,14 +8,8 @@ import {
   listAsistenciasQuerySchema,
   locationSchema,
 } from './asistencias.schemas';
-
-function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    return Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim();
-  }
-  return req.socket.remoteAddress ?? 'unknown';
-}
+import { getClientIp } from '../../shared/utils/request';
+import { withSignedPhotos } from '../../shared/attendance/photoUrls';
 
 function requireUser(req: Request) {
   if (!req.user) {
@@ -27,7 +21,7 @@ function requireUser(req: Request) {
 export async function getEstadoActual(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const estado = await asistenciasService.getEstadoActual(requireUser(req));
-    res.status(200).json({ ok: true, data: estado });
+    res.status(200).json({ ok: true, data: withSignedPhotos(estado) });
   } catch (error) {
     next(error);
   }
@@ -46,7 +40,7 @@ export async function marcarEntrada(req: Request, res: Response, next: NextFunct
     res.status(201).json({
       ok: true,
       message: 'Ingreso registrado correctamente.',
-      data: registro,
+      data: withSignedPhotos(registro),
     });
   } catch (error) {
     next(error);
@@ -61,7 +55,7 @@ export async function marcarSalida(req: Request, res: Response, next: NextFuncti
     res.status(200).json({
       ok: true,
       message: 'Salida registrada correctamente.',
-      data: registro,
+      data: withSignedPhotos(registro),
     });
   } catch (error) {
     next(error);
@@ -75,7 +69,7 @@ export async function listAsistencias(req: Request, res: Response, next: NextFun
 
     res.status(200).json({
       ok: true,
-      data: registros,
+      data: withSignedPhotos(registros),
     });
   } catch (error) {
     next(error);
@@ -91,7 +85,7 @@ export async function solicitarJustificacion(req: Request, res: Response, next: 
     res.status(200).json({
       ok: true,
       message: 'Justificación enviada correctamente.',
-      data: registro,
+      data: withSignedPhotos(registro),
     });
   } catch (error) {
     next(error);
@@ -112,7 +106,7 @@ export async function solicitarJustificacionHorario(req: Request, res: Response,
     res.status(200).json({
       ok: true,
       message: 'Justificación enviada correctamente.',
-      data: registro,
+      data: withSignedPhotos(registro),
     });
   } catch (error) {
     next(error);
@@ -127,7 +121,7 @@ export async function aprobarJustificacion(req: Request, res: Response, next: Ne
     res.status(200).json({
       ok: true,
       message: 'Justificación aprobada correctamente.',
-      data: registro,
+      data: withSignedPhotos(registro),
     });
   } catch (error) {
     next(error);
@@ -142,7 +136,7 @@ export async function rechazarJustificacion(req: Request, res: Response, next: N
     res.status(200).json({
       ok: true,
       message: 'Justificación rechazada correctamente.',
-      data: registro,
+      data: withSignedPhotos(registro),
     });
   } catch (error) {
     next(error);

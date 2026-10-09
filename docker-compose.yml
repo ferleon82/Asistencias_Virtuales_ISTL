@@ -64,6 +64,11 @@ services:
       API_RATE_LIMIT_MAX: ${API_RATE_LIMIT_MAX:-1000}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-5}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+      PHOTO_STORAGE: ${PHOTO_STORAGE:-local}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SUPABASE_PHOTO_BUCKET: ${SUPABASE_PHOTO_BUCKET:-asistencias-fotos}
       TZ: America/Guayaquil
     volumes:
       - ./backend/src:/app/src

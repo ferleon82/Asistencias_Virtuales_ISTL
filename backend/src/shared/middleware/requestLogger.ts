@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createLogger, format, transports } from 'winston';
 import { env } from '../../config/env';
+import { getClientIp } from '../utils/request';
 
 // ─── Logger Winston ─────────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
       path: req.path,
       statusCode: res.statusCode,
       duration: `${duration}ms`,
-      ip: req.headers['x-forwarded-for'] ?? req.socket.remoteAddress,
+      ip: getClientIp(req),
       userAgent: req.headers['user-agent'],
       userId: req.user?.id,
     };

@@ -2,6 +2,7 @@ import { Prisma, Rol } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/database';
 import { AppError } from '../../shared/middleware/errorHandler';
+import { invalidateUserStatus } from '../../shared/utils/jwt';
 import type {
   CarreraInput,
   CreateUsuarioInput,
@@ -178,6 +179,8 @@ export class AdminService {
         created_at: true,
       },
     });
+
+    invalidateUserStatus(id);
 
     if (password || data.activo === false) {
       await prisma.refreshToken.updateMany({

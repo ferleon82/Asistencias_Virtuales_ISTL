@@ -6,6 +6,85 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Panel del frontend (fase 5 del refactor)
+
+- `Dashboard.tsx` paso de 1067 a ~480 lineas: la gestion de horarios y la
+  academica viven en `useScheduleManagement` y `useAcademicManagement`, y la
+  cabecera, KPIs, pestanas y tarjetas de marcacion son componentes propios.
+- Cada modulo se descarga al abrir su pestana (`React.lazy`). El paquete del
+  panel bajo de 563 KB a ~45 KB; la libreria de graficos solo se carga en el
+  Dashboard.
+- Las siete copias de `getApiMessage` se unificaron en `src/lib/apiError.ts`.
+- El docente ya no pide carreras, materias ni docentes (respondian 403 cada
+  30 s) y su filtro de periodo academico en Reportes vuelve a funcionar.
+- Las tarjetas superiores muestran siempre la asistencia del dia actual, sin
+  depender de los filtros de Reportes.
+
+### Seguridad de sesion y fotos (fase 4 del refactor)
+
+- En cada peticion se confirma que el usuario siga activo y se usa su rol
+  vigente (cache de 30 s). Un usuario desactivado pierde el acceso de
+  inmediato en lugar de conservarlo hasta que vence su token (8 h).
+- Las fotos de asistencia ya no son publicas en `/uploads`: se entregan con
+  enlaces firmados que vencen en `/api/v1/fotos/:archivo` (2 h en pantalla,
+  7 dias en el Excel).
+- Almacenamiento de fotos configurable con `PHOTO_STORAGE`: `local` en
+  desarrollo y bucket privado de Supabase Storage en produccion. Ver README.
+- Sin migraciones: las referencias guardadas en la base no cambian.
+
+### Reportes por modulos (fase 3 del refactor)
+
+- `reportes.service.ts` se dividio en consultas y rango de fechas
+  (`reportes.query.ts`), calculo de sesiones (`reportes.sessions.ts`), formato,
+  PDF (`reportes.pdf.ts`) y Excel (`reportes.excel.ts`). Se verifico que el
+  resumen, el Excel y el PDF fueran identicos a los anteriores.
+- El rango de fechas de los reportes ya no depende de la zona horaria del
+  servidor.
+- PDF: se eliminaron las dos paginas en blanco que aparecian despues de cada
+  pagina de contenido; el pie ahora muestra "Pagina X de N".
+- Nuevas pruebas de rango de fechas, filtros por rol y exportacion.
+
+### Logica comun de marcacion (fase 2 del refactor)
+
+- Clases y jornada administrativa comparten `backend/src/shared/attendance/`:
+  reloj de Ecuador, ventanas de marcado, foto, auditoria, bloqueo por docente
+  y deteccion de marcaciones abiertas.
+- Los calculos de hora ya no dependen de la zona horaria del servidor. Las
+  pruebas pueden ejecutarse con `TEST_TZ=UTC pnpm test` para comprobarlo.
+- Una marcacion sin salida solo bloquea nuevas entradas mientras su ventana de
+  salida sigue abierta, tanto en clases como en jornada administrativa. Antes,
+  una salida olvidada de una hora administrativa bloqueaba las clases del resto
+  del dia (y viceversa).
+- Se puede marcar el ultimo dia de un periodo academico; antes quedaba fuera
+  por comparar la fecha del periodo con la hora actual en UTC.
+- El domingo, el estado actual responde "sin clase activa" en lugar de un
+  error 404.
+- La justificacion de una clase sin marcacion valida que el horario sea del dia
+  de la semana actual.
+- Los plazos de justificacion usan las ventanas configuradas en lugar de 15
+  minutos fijos (el valor por defecto sigue siendo 15).
+- La configuracion de asistencia se lee en una sola consulta.
+- Sin migraciones de base de datos ni cambios en las respuestas de la API.
+
+### Correcciones criticas (fase 1 del refactor)
+
+- La API confia en los saltos de proxy configurados en `TRUST_PROXY`
+  (Render = 1). Los limites de peticiones y de intentos de login ahora se
+  aplican por usuario y no a toda la institucion, y la IP de auditoria ya no
+  puede falsificarse con `X-Forwarded-For`.
+- Las marcaciones de entrada y salida (clases y jornada administrativa) se
+  procesan con un bloqueo por docente para evitar registros duplicados por
+  doble clic o reintentos.
+- La salida de clase guarda el GPS en `lat_salida`/`lng_salida`.
+- Reportes: las sesiones programadas respetan la vigencia de cada horario, las
+  clases que aun no inician no cuentan como ausencias y las justificaciones sin
+  marcacion aparecen en el detalle. Las justificadas aprobadas ya no se cuentan
+  como ausentes.
+- Reportes por periodo academico usan las fechas reales del periodo.
+- Un horario de clase ya no puede cruzarse con una hora administrativa.
+- El login con contrasena acepta el correo con mayusculas o espacios.
+- Sin migraciones de base de datos.
+
 ### Paralelos y ubicacion por marcacion
 
 - Se incorporo el paralelo `A`, `B`, `C` o `D` a las asignaciones docentes y

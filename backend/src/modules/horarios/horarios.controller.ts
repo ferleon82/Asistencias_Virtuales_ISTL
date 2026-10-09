@@ -2,14 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { horariosService } from './horarios.service';
 import { createHorarioSchema, horarioParamsSchema, horarioQuerySchema, updateHorarioSchema } from './horarios.schemas';
-
-function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    return Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim();
-  }
-  return req.socket.remoteAddress ?? 'unknown';
-}
+import { getClientIp } from '../../shared/utils/request';
 
 function requireUser(req: Request) {
   if (!req.user) {

@@ -3,10 +3,13 @@ import { DiaSemana, EstadoAsistencia, Modalidad } from '@prisma/client';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { AsistenciasService } from './asistencias.service';
 
-vi.mock('../../config/database', () => ({
-  prisma: {
+vi.mock('../../config/database', () => {
+  const prisma = {
+    $transaction: vi.fn(),
+    $queryRaw: vi.fn(),
     horario: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
     },
     registroAsistencia: {
       findFirst: vi.fn(),
@@ -16,15 +19,19 @@ vi.mock('../../config/database', () => ({
     },
     registroAdministrativo: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
     },
     systemSetting: {
-      findUnique: vi.fn(),
+      findMany: vi.fn(),
     },
     auditLog: {
       create: vi.fn(),
     },
-  },
-}));
+  };
+  // La transacción con bloqueo por docente se ejecuta sobre el mismo cliente simulado.
+  prisma.$transaction.mockImplementation((fn: (tx: typeof prisma) => unknown) => fn(prisma));
+  return { prisma };
+});
 
 vi.mock('node:fs/promises', () => ({
   default: {
@@ -35,12 +42,18 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn(),
 }));
 
-vi.mock('../../shared/utils/timezone', () => ({
-  nowInEcuador: vi.fn(() => new Date(2026, 4, 11, 10, 33, 0, 0)),
-  calcularEstadoAsistencia: vi.fn(() => EstadoAsistencia.puntual),
+// Lunes 11 de mayo de 2026, 10:33 en Ecuador, sin depender de la zona horaria de la máquina.
+vi.mock('../../shared/attendance/clock', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../shared/attendance/clock')>()),
+  currentTime: vi.fn(() => new Date('2026-05-11T10:33:00-05:00')),
 }));
 
+function settings(photoRequired: boolean) {
+  return [{ key: 'attendance_photo_required', value: String(photoRequired) }];
+}
+
 import { prisma } from '../../config/database';
+import { currentTime } from '../../shared/attendance/clock';
 
 const service = new AsistenciasService();
 
@@ -132,14 +145,13 @@ const earlyExitRegistro = {
 describe('AsistenciasService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.systemSetting.findUnique).mockResolvedValue({ value: 'true' } as never);
-    vi.mocked(prisma.registroAdministrativo.findFirst).mockResolvedValue(null as never);
+    vi.mocked(prisma.systemSetting.findMany).mockResolvedValue(settings(true) as never);
+    vi.mocked(prisma.registroAsistencia.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.registroAdministrativo.findMany).mockResolvedValue([] as never);
   });
 
   it('bloquea una segunda entrada para el mismo horario en el mismo dia', async () => {
-    vi.mocked(prisma.registroAsistencia.findFirst)
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(existingRegistro as never);
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(existingRegistro as never);
     vi.mocked(prisma.horario.findMany).mockResolvedValue([activeHorario] as never);
 
     await expect(service.marcarEntrada(user, {}, '127.0.0.1')).rejects.toMatchObject({
@@ -155,10 +167,8 @@ describe('AsistenciasService', () => {
       ...existingRegistro,
       foto_entrada_url: null,
     };
-    vi.mocked(prisma.systemSetting.findUnique).mockResolvedValue({ value: 'false' } as never);
-    vi.mocked(prisma.registroAsistencia.findFirst)
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null);
+    vi.mocked(prisma.systemSetting.findMany).mockResolvedValue(settings(false) as never);
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.horario.findMany).mockResolvedValue([activeHorario] as never);
     vi.mocked(prisma.registroAsistencia.create).mockResolvedValue(registroSinFoto as never);
     vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
@@ -183,6 +193,34 @@ describe('AsistenciasService', () => {
     expect(estado.puedeMarcarSalida).toBe(false);
   });
 
+  it('el domingo responde sin clase activa en lugar de un error', async () => {
+    vi.mocked(currentTime).mockReturnValueOnce(new Date('2026-05-10T10:33:00-05:00'));
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(null);
+
+    const estado = await service.getEstadoActual(user);
+
+    expect(estado.horarioActivo).toBeNull();
+    expect(estado.puedeMarcarEntrada).toBe(false);
+    expect(prisma.horario.findMany).not.toHaveBeenCalled();
+  });
+
+  it('busca clases vigentes incluido el último día del período', async () => {
+    vi.mocked(prisma.horario.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(null);
+
+    await service.getEstadoActual(user);
+
+    expect(prisma.horario.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          dia_semana: DiaSemana.lunes,
+          fecha_inicio_ciclo: { lte: new Date('2026-05-11T00:00:00.000Z') },
+          fecha_fin_ciclo: { gte: new Date('2026-05-11T00:00:00.000Z') },
+        }),
+      })
+    );
+  });
+
   it('ignora horarios cuya hora fin ya paso al buscar clase activa', async () => {
     vi.mocked(prisma.horario.findMany).mockResolvedValue([endedHorario, activeHorario] as never);
     vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(null);
@@ -195,6 +233,7 @@ describe('AsistenciasService', () => {
 
   it('mantiene bloqueada la salida antes de los ultimos 10 minutos de clase', async () => {
     vi.mocked(prisma.horario.findMany).mockResolvedValue([activeHorario] as never);
+    vi.mocked(prisma.registroAsistencia.findMany).mockResolvedValue([earlyExitRegistro] as never);
     vi.mocked(prisma.registroAsistencia.findFirst)
       .mockResolvedValueOnce(earlyExitRegistro as never)
       .mockResolvedValueOnce(null);
@@ -234,6 +273,42 @@ describe('AsistenciasService', () => {
     vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
 
     await expect(service.marcarSalida(user, { foto_base64: cameraPhoto }, '127.0.0.1')).resolves.toEqual(updatedRegistro);
+  });
+
+  it('guarda el GPS de salida en sus propios campos y dentro del bloqueo por docente', async () => {
+    const closeToEndRegistro = {
+      ...openRegistro,
+      horario: {
+        ...openRegistro.horario,
+        hora_fin: '10:40',
+      },
+    };
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(closeToEndRegistro as never);
+    vi.mocked(prisma.registroAsistencia.update).mockResolvedValue(closeToEndRegistro as never);
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+
+    await service.marcarSalida(user, { lat: -3.99, lng: -79.2, precision_m: 12, foto_base64: cameraPhoto }, '127.0.0.1');
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.registroAsistencia.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ lat_salida: -3.99, lng_salida: -79.2, precision_salida_m: 12 }),
+      })
+    );
+  });
+
+  it('marca la entrada dentro del bloqueo por docente', async () => {
+    vi.mocked(prisma.horario.findMany).mockResolvedValue([activeHorario] as never);
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(null as never);
+    vi.mocked(prisma.registroAsistencia.create).mockResolvedValue({ id: 'nuevo', foto_entrada_url: null } as never);
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+
+    await service.marcarEntrada(user, { foto_base64: cameraPhoto }, '127.0.0.1');
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.registroAsistencia.create).toHaveBeenCalledTimes(1);
   });
 
   it('rechaza solicitar justificación cuando la marcación ya tiene salida', async () => {

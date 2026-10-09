@@ -2,7 +2,8 @@
 // Se ejecuta antes de cada archivo de test
 
 // Configurar zona horaria para tests
-process.env.TZ = 'America/Guayaquil';
+// TEST_TZ permite comprobar que la lógica no depende de la zona horaria del servidor.
+process.env.TZ = process.env.TEST_TZ ?? 'America/Guayaquil';
 
 // Variables de entorno mínimas para tests
 process.env.NODE_ENV = 'test';

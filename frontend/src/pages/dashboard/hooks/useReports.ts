@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type SetStateAction } from 'react';
 import api from '../../../lib/axios';
 import type { MateriaOption, PeriodoAcademicoOption, ReportSummary } from '../types';
+import { getApiMessage } from '../../../lib/apiError';
 
-function getApiMessage(error: unknown, fallback: string): string {
-  return (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
-}
 
 function todayIso(): string {
   const parts = new Intl.DateTimeFormat('en-US', {

@@ -12,14 +12,7 @@ import {
   updatePeriodoAcademicoSchema,
   updateUsuarioSchema,
 } from './admin.schemas';
-
-function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    return Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim();
-  }
-  return req.socket.remoteAddress ?? 'unknown';
-}
+import { getClientIp } from '../../shared/utils/request';
 
 function requireUser(req: Request) {
   if (!req.user) throw new AppError('Autenticación requerida.', 401);

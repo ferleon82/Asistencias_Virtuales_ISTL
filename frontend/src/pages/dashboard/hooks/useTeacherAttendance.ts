@@ -2,10 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../../../lib/axios';
 import { getBrowserLocation } from '../geolocation';
 import type { AsistenciaItem, EstadoAsistenciaActual, HorarioItem } from '../types';
+import { getApiMessage } from '../../../lib/apiError';
 
-function getApiMessage(error: unknown, fallback: string): string {
-  return (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
-}
 
 interface UseTeacherAttendanceInput {
   userRole?: string;
