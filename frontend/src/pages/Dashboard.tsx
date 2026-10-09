@@ -341,6 +341,9 @@ export default function Dashboard() {
 
           {activeModuleTab === 'analytics' && canViewInstitutionalAnalytics && (
             <AnalyticsDashboard
+              reportType={reportType}
+              setReportType={setReportType}
+              canViewAdministrative={user?.rol === 'tics' || user?.rol === 'rectorado' || user?.rol === 'talento_humano'}
               reportSummary={reportSummary}
               reportFrom={reportFrom}
               setReportFrom={setReportFrom}

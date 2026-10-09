@@ -251,7 +251,10 @@ export async function fetchRegistrosAdministrativos(where: Prisma.RegistroAdmini
 }
 
 export async function fetchHorariosAdministrativos(where: Prisma.HorarioAdministrativoWhereInput) {
-  return prisma.horarioAdministrativo.findMany({ where, include: { periodo_academico: true } });
+  return prisma.horarioAdministrativo.findMany({
+    where,
+    include: { periodo_academico: true, docente: { select: { id: true, nombre: true, apellido: true, email: true } } },
+  });
 }
 
 export function toAdministrativeRows(registros: RegistroAdministrativo[]): ReportRow[] {

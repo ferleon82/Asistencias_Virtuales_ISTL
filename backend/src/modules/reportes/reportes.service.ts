@@ -22,6 +22,16 @@ import type { ReporteQueryInput } from './reportes.schemas';
 import { buildAttendanceSummary, type AttendanceMark, type ScheduleSlot } from './reportes.sessions';
 import type { ReportRow, ReportScope as AuthScope, ReportSummaryData } from './reportes.types';
 
+const ROLES_REPORTE_ADMINISTRATIVO: Rol[] = [Rol.docente, Rol.talento_humano, Rol.tics, Rol.rectorado];
+
+/**
+ * Grupo de un docente para los gráficos: nombre completo y, como etiqueta
+ * corta y única, el usuario de su correo institucional (ana.perez@... -> ana.perez).
+ */
+function grupoDocente(docente: { nombre: string; apellido: string; email: string }) {
+  return { nombre: `${docente.nombre} ${docente.apellido}`, codigo: docente.email.split('@')[0] };
+}
+
 export class ReportesService {
   /** Resumen para la pantalla, con enlaces de foto firmados por pocas horas. */
   async resumen(filters: ReporteQueryInput, user: AuthScope): Promise<ReportSummaryData> {
@@ -63,8 +73,10 @@ export class ReportesService {
   }
 
   private async resumenAdministrativa(filters: ReporteQueryInput, user: AuthScope): Promise<ReportSummaryData> {
-    if (user.rol !== Rol.docente && user.rol !== Rol.talento_humano) {
-      throw new AppError('Solo Talento Humano y el docente pueden consultar reportes administrativos.', 403);
+    // El docente ve solo lo suyo (scopedFilters); las autoridades, a toda la institución.
+    // Coordinación no: las horas administrativas no dependen de una carrera.
+    if (!ROLES_REPORTE_ADMINISTRATIVO.includes(user.rol as Rol)) {
+      throw new AppError('Solo Talento Humano, TICs, Rectorado y el docente pueden consultar reportes administrativos.', 403);
     }
     const scoped = scopedFilters(filters, user);
     const { from, to } = await resolveRange(scoped);
@@ -84,26 +96,23 @@ export class ReportesService {
       }),
     ]);
 
-    const grupo = { nombre: 'Jornada administrativa', codigo: 'ADM' };
+    // En la jornada administrativa el desglose natural es por docente (en clases, por carrera).
     const slots: ScheduleSlot[] = horarios.map((horario) => ({
       id: horario.id,
       dia_semana: horario.dia_semana,
       hora_inicio: horario.hora_inicio,
       fecha_inicio: horario.fecha_inicio,
       fecha_fin: horario.fecha_fin,
-      grupo,
+      grupo: grupoDocente(horario.docente),
     }));
     const marks: AttendanceMark[] = registros.map((registro) => ({
       slotId: registro.horario_administrativo_id,
-      grupo,
+      grupo: grupoDocente(registro.docente),
       estado: registro.estado,
       timestamp_entrada: registro.timestamp_entrada,
       created_at: registro.created_at,
     }));
     const summary = buildAttendanceSummary({ from, to, now: currentTime(), slots, marks });
-    if (summary.porGrupo.length === 0) {
-      summary.porGrupo.push({ carrera: grupo.nombre, codigo: grupo.codigo, ...summary.totals });
-    }
 
     return this.toSummaryData('administrativa', from, to, summary, toAdministrativeRows(registros));
   }

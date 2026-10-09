@@ -17,6 +17,10 @@ import { type Dispatch, type SetStateAction, useMemo, useState } from 'react';
 import type { CarreraOption, DocenteOption, MateriaOption, PeriodoAcademicoOption, ReportSummary } from './types';
 
 interface AnalyticsDashboardProps {
+  reportType: 'docente' | 'administrativa';
+  setReportType: Dispatch<SetStateAction<'docente' | 'administrativa'>>;
+  /** Roles que pueden consultar la jornada administrativa (TH, TICs, Rectorado). */
+  canViewAdministrative: boolean;
   reportSummary: ReportSummary | null;
   reportFrom: string;
   setReportFrom: Dispatch<SetStateAction<string>>;
@@ -104,7 +108,15 @@ export function AnalyticsDashboard({
   loadReportSummary,
   resetReportFilters,
   downloadReport,
+  reportType,
+  setReportType,
+  canViewAdministrative,
 }: AnalyticsDashboardProps) {
+  const isAdministrative = reportType === 'administrativa';
+  // Textos según lo que se analiza: clases (por carrera) u horas administrativas (por docente).
+  const copy = isAdministrative
+    ? { grupo: 'docente', grupos: 'Docentes', unidad: 'bloques', programadas: 'bloques programados' }
+    : { grupo: 'carrera', grupos: 'Carreras', unidad: 'clases', programadas: 'clases programadas' };
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>('presentes');
   const [mainView, setMainView] = useState<MainView>('carreras');
   const [careerLimit, setCareerLimit] = useState(8);
@@ -183,6 +195,28 @@ export function AnalyticsDashboard({
         <span className="status-pill bg-istl-50 text-istl-700">Rectorado / Talento Humano</span>
       </div>
 
+      {canViewAdministrative && (
+        <div className="mt-5 inline-grid grid-cols-2 gap-2 rounded-md border border-slate-200 bg-slate-50 p-1" role="tablist" aria-label="Tipo de asistencia">
+          {[
+            { key: 'docente', label: 'Clases' },
+            { key: 'administrativa', label: 'Horas administrativas' },
+          ].map((tipo) => (
+            <button
+              key={tipo.key}
+              type="button"
+              role="tab"
+              aria-selected={reportType === tipo.key}
+              onClick={() => setReportType(tipo.key as 'docente' | 'administrativa')}
+              className={`rounded px-4 py-2 text-sm font-semibold transition-colors ${
+                reportType === tipo.key ? 'bg-brand-navy text-white shadow-sm' : 'text-slate-600 hover:text-brand-navy'
+              }`}
+            >
+              {tipo.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -209,24 +243,28 @@ export function AnalyticsDashboard({
               ))}
             </select>
           </label>
-          <label className="field-label">
-            Carrera
-            <select value={reportCarreraId} onChange={(event) => setReportCarreraId(event.target.value)} className="input-control">
-              <option value="">Todas</option>
-              {carreras.map((carrera) => (
-                <option key={carrera.id} value={carrera.id}>{carrera.codigo}</option>
-              ))}
-            </select>
-          </label>
-          <label className="field-label">
-            Materia
-            <select value={reportMateriaId} onChange={(event) => setReportMateriaId(event.target.value)} className="input-control">
-              <option value="">Todas</option>
-              {reportMaterias.map((materia) => (
-                <option key={materia.id} value={materia.id}>{materia.codigo}</option>
-              ))}
-            </select>
-          </label>
+          {!isAdministrative && (
+            <label className="field-label">
+              Carrera
+              <select value={reportCarreraId} onChange={(event) => setReportCarreraId(event.target.value)} className="input-control">
+                <option value="">Todas</option>
+                {carreras.map((carrera) => (
+                  <option key={carrera.id} value={carrera.id}>{carrera.codigo}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {!isAdministrative && (
+            <label className="field-label">
+              Materia
+              <select value={reportMateriaId} onChange={(event) => setReportMateriaId(event.target.value)} className="input-control">
+                <option value="">Todas</option>
+                {reportMaterias.map((materia) => (
+                  <option key={materia.id} value={materia.id}>{materia.codigo}</option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="field-label">
             Docente
             <select value={reportDocenteId} onChange={(event) => setReportDocenteId(event.target.value)} className="input-control">
@@ -245,15 +283,17 @@ export function AnalyticsDashboard({
               ))}
             </select>
           </label>
-          <label className="field-label">
-            Ciclo
-            <select value={reportCiclo} onChange={(event) => setReportCiclo(event.target.value)} className="input-control">
-              <option value="">Todos</option>
-              {reportCiclos.map((ciclo) => (
-                <option key={ciclo} value={ciclo}>{ciclo}</option>
-              ))}
-            </select>
-          </label>
+          {!isAdministrative && (
+            <label className="field-label">
+              Ciclo
+              <select value={reportCiclo} onChange={(event) => setReportCiclo(event.target.value)} className="input-control">
+                <option value="">Todos</option>
+                {reportCiclos.map((ciclo) => (
+                  <option key={ciclo} value={ciclo}>{ciclo}</option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:justify-end">
           <button type="button" onClick={resetReportFilters} className="btn-secondary">
@@ -273,7 +313,7 @@ export function AnalyticsDashboard({
 
       <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-4">
         {[
-          { label: 'Cumplimiento', value: cumplimiento, detail: `${presentes}/${totalProgramadas} clases con ingreso` },
+          { label: 'Cumplimiento', value: cumplimiento, detail: `${presentes}/${totalProgramadas} ${copy.unidad} con ingreso` },
           { label: 'Puntualidad', value: puntualidad, detail: 'Sobre registros del filtro' },
           { label: 'Tardanzas', value: tardanzas, detail: 'Marcaciones fuera de hora' },
           { label: 'Ausencias', value: ausentes, detail: 'Programadas sin ingreso' },
@@ -308,7 +348,7 @@ export function AnalyticsDashboard({
         </div>
         <div className="grid grid-cols-2 gap-2 rounded-md border border-slate-200 bg-slate-50 p-1">
           {[
-            { key: 'carreras', label: 'Carreras' },
+            { key: 'carreras', label: copy.grupos },
             { key: 'tendencia', label: 'Tendencia' },
           ].map((view) => (
             <button
@@ -330,7 +370,7 @@ export function AnalyticsDashboard({
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="font-brand text-lg font-bold text-brand-navy">
-                {mainView === 'carreras' ? 'Asistencia por carrera' : 'Tendencia diaria'}
+                {mainView === 'carreras' ? `Asistencia por ${copy.grupo}` : 'Tendencia diaria'}
               </h3>
               <p className="text-sm text-slate-500">
                 {mainView === 'carreras'
@@ -431,7 +471,7 @@ export function AnalyticsDashboard({
           {/* Base común: clases programadas. Cada clase termina en un solo estado, así
               que los porcentajes suman ~100%. Las ausencias no son registros, por eso
               dividir por registros daba valores como 4200%. */}
-          <p className="mt-4 text-xs text-slate-500">Sobre {totalProgramadas} clases programadas</p>
+          <p className="mt-4 text-xs text-slate-500">Sobre {totalProgramadas} {copy.programadas}</p>
           <div className="mt-2 space-y-3">
             {stateBars.map((item) => (
               <div key={item.label}>
@@ -453,7 +493,7 @@ export function AnalyticsDashboard({
         <div className="rounded-md border border-slate-200 p-4">
           <div className="mb-4">
             <h3 className="font-brand text-lg font-bold text-brand-navy">Cumplimiento por periodo</h3>
-            <p className="text-sm text-slate-500">Línea porcentual frente a clases programadas.</p>
+            <p className="text-sm text-slate-500">Línea porcentual frente a {copy.programadas}.</p>
           </div>
           <div className="h-72 min-w-0">
           <ResponsiveContainer width="100%" height="100%">
