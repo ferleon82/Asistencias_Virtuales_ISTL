@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { env } from '../../config/env';
+import { prisma } from '../../config/database';
 import { AppError } from '../middleware/errorHandler';
 
 // ─── Tipos extendidos para Express ─────────────────────────────────────────────
@@ -67,9 +68,37 @@ export function verifyRefreshToken(token: string): JwtPayload {
   }
 }
 
+// ─── Estado vigente del usuario ─────────────────────────────────────────────────
+
+// El token puede durar horas: en cada petición se confirma con la base que el
+// usuario siga activo y se usa su rol actual. Se cachea unos segundos para no
+// consultar la base en cada petición del panel.
+const USER_STATUS_TTL_MS = 30_000;
+const userStatusCache = new Map<string, { rol: string; activo: boolean; expiresAt: number }>();
+
+async function getUserStatus(userId: string): Promise<{ rol: string; activo: boolean } | null> {
+  const cached = userStatusCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached;
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { rol: true, activo: true } });
+  if (!user) {
+    userStatusCache.delete(userId);
+    return null;
+  }
+
+  const status = { rol: user.rol, activo: user.activo, expiresAt: Date.now() + USER_STATUS_TTL_MS };
+  userStatusCache.set(userId, status);
+  return status;
+}
+
+/** Descarta el estado cacheado tras cambiar el rol o desactivar a un usuario. */
+export function invalidateUserStatus(userId: string): void {
+  userStatusCache.delete(userId);
+}
+
 // ─── Middleware de autenticación ────────────────────────────────────────────────
 
-export function authenticate(req: Request, _res: Response, next: NextFunction): void {
+export async function authenticate(req: Request, _res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -80,10 +109,15 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
 
   try {
     const payload = verifyAccessToken(token);
+    const status = await getUserStatus(payload.sub);
+    if (!status || !status.activo) {
+      throw new AppError('Su cuenta no está activa. Inicie sesión nuevamente.', 401);
+    }
+
     req.user = {
       id: payload.sub,
       email: payload.email,
-      rol: payload.rol,
+      rol: status.rol,
     };
     next();
   } catch (error) {
