@@ -37,10 +37,23 @@ export function atEcuadorTime(reference: Date, time: string): Date {
   return new Date(`${ecuadorDateKey(reference)}T${time}:00${ECUADOR_OFFSET}`);
 }
 
+/** Inicio y fin del día de Ecuador `YYYY-MM-DD`. */
+export function ecuadorDayRangeOfKey(dateKey: string): { gte: Date; lte: Date } {
+  const start = new Date(`${dateKey}T00:00:00${ECUADOR_OFFSET}`);
+  return { gte: start, lte: new Date(start.getTime() + DAY_MS - 1) };
+}
+
 /** Inicio y fin del día de Ecuador que contiene `reference`. */
 export function ecuadorDayRange(reference: Date): { gte: Date; lte: Date } {
-  const start = atEcuadorTime(reference, '00:00');
-  return { gte: start, lte: new Date(start.getTime() + DAY_MS - 1) };
+  return ecuadorDayRangeOfKey(ecuadorDateKey(reference));
+}
+
+/**
+ * Fecha `YYYY-MM-DD` de una columna `@db.Date` o de un parámetro de fecha sin
+ * hora: ambos llegan como medianoche UTC y no deben desplazarse de día.
+ */
+export function dateOnlyKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
 }
 
 /**

@@ -1,11 +1,11 @@
 import { DiaSemana, EstadoAsistencia } from '@prisma/client';
+import { ECUADOR_TZ, dateOnlyKey, ecuadorDateKey } from '../../shared/attendance/clock';
 
 // Cálculo puro de sesiones programadas vs. marcaciones. No accede a la base de
 // datos para poder probarse de forma aislada y reutilizarse en los reportes de
 // clases y de jornada administrativa.
 
 const ECUADOR_OFFSET = '-05:00';
-const ECUADOR_TZ = 'America/Guayaquil';
 
 const DAY_NUMBER: Record<DiaSemana, number> = {
   lunes: 1,
@@ -77,21 +77,6 @@ function emptyCounters(): SessionCounters {
   return { programadas: 0, registros: 0, presentes: 0, puntual: 0, tardanza: 0, ausente: 0, justificado: 0 };
 }
 
-/** Fecha calendario (YYYY-MM-DD) en hora de Ecuador. */
-export function ecuadorDateKey(date: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: ECUADOR_TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
-}
-
-/** Fecha de una columna @db.Date (medianoche UTC) sin desplazarla de día. */
-function dbDateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 function dayLabel(dateKey: string): string {
   return new Intl.DateTimeFormat('es-EC', {
     timeZone: ECUADOR_TZ,
@@ -106,8 +91,8 @@ function eachDateKey(from: Date, to: Date): Array<{ key: string; weekday: number
   const end = ecuadorDateKey(to);
   const cursor = new Date(`${ecuadorDateKey(from)}T00:00:00Z`);
 
-  while (dbDateKey(cursor) <= end) {
-    days.push({ key: dbDateKey(cursor), weekday: cursor.getUTCDay() });
+  while (dateOnlyKey(cursor) <= end) {
+    days.push({ key: dateOnlyKey(cursor), weekday: cursor.getUTCDay() });
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
@@ -162,8 +147,8 @@ export function buildAttendanceSummary(input: {
   };
 
   input.slots.forEach((slot) => {
-    const vigenteDesde = dbDateKey(slot.fecha_inicio);
-    const vigenteHasta = dbDateKey(slot.fecha_fin);
+    const vigenteDesde = dateOnlyKey(slot.fecha_inicio);
+    const vigenteHasta = dateOnlyKey(slot.fecha_fin);
 
     days
       .filter((day) => day.weekday === DAY_NUMBER[slot.dia_semana])
