@@ -6,6 +6,20 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Panel del frontend (fase 5 del refactor)
+
+- `Dashboard.tsx` paso de 1067 a ~480 lineas: la gestion de horarios y la
+  academica viven en `useScheduleManagement` y `useAcademicManagement`, y la
+  cabecera, KPIs, pestanas y tarjetas de marcacion son componentes propios.
+- Cada modulo se descarga al abrir su pestana (`React.lazy`). El paquete del
+  panel bajo de 563 KB a ~45 KB; la libreria de graficos solo se carga en el
+  Dashboard.
+- Las siete copias de `getApiMessage` se unificaron en `src/lib/apiError.ts`.
+- El docente ya no pide carreras, materias ni docentes (respondian 403 cada
+  30 s) y su filtro de periodo academico en Reportes vuelve a funcionar.
+- Las tarjetas superiores muestran siempre la asistencia del dia actual, sin
+  depender de los filtros de Reportes.
+
 ### Seguridad de sesion y fotos (fase 4 del refactor)
 
 - En cada peticion se confirma que el usuario siga activo y se usa su rol
