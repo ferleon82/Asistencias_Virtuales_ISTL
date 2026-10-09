@@ -131,8 +131,13 @@ export class ReportesService {
     };
   }
 
-  async excel(filters: ReporteQueryInput, user: AuthScope): Promise<Buffer> {
-    return renderReportExcel(withSignedPhotos(await this.calcular(filters, user), PHOTO_URL_EXPORT_TTL_SECONDS));
+  /**
+   * Excel con enlaces de foto absolutos (el archivo se abre fuera del sistema)
+   * firmados por varios días. `publicBaseUrl` es la dirección pública del backend.
+   */
+  async excel(filters: ReporteQueryInput, user: AuthScope, publicBaseUrl: string): Promise<Buffer> {
+    const data = await this.calcular(filters, user);
+    return renderReportExcel(withSignedPhotos(data, PHOTO_URL_EXPORT_TTL_SECONDS, Date.now(), publicBaseUrl));
   }
 
   async pdf(filters: ReporteQueryInput, user: AuthScope): Promise<Buffer> {

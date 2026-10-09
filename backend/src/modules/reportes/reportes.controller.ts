@@ -32,7 +32,8 @@ export async function getResumenReporte(req: Request, res: Response, next: NextF
 export async function downloadExcelReporte(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const filters = reporteQuerySchema.parse(req.query);
-    const buffer = await reportesService.excel(filters, requireUser(req));
+    // Con trust proxy, protocolo y host son los públicos (https://… en Render).
+    const buffer = await reportesService.excel(filters, requireUser(req), `${req.protocol}://${req.get('host')}`);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename('reporte-asistencias', 'xlsx')}"`);

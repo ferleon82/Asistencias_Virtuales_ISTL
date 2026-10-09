@@ -40,14 +40,23 @@ function signature(filename: string, expiresAt: number): string {
   return createHmac('sha256', signingKey()).update(`${filename}:${expiresAt}`).digest('base64url');
 }
 
-/** Enlace firmado (ruta relativa a la API) para una referencia guardada; `null` si no es válida. */
-export function signPhotoUrl(reference: string | null | undefined, ttlSeconds: number, now = Date.now()): string | null {
+/**
+ * Enlace firmado para una referencia guardada; `null` si no es válida. Sin
+ * `baseUrl` es relativo a la API (el frontend le antepone su dirección); para
+ * archivos exportados se pasa la dirección pública del backend.
+ */
+export function signPhotoUrl(
+  reference: string | null | undefined,
+  ttlSeconds: number,
+  now = Date.now(),
+  baseUrl = ''
+): string | null {
   if (!reference) return null;
   const filename = filenameFromReference(reference);
   if (!filename) return null;
 
   const expiresAt = Math.floor(now / 1000) + ttlSeconds;
-  return `${PHOTO_ROUTE}/${filename}?exp=${expiresAt}&sig=${signature(filename, expiresAt)}`;
+  return `${baseUrl.replace(/\/+$/, '')}${PHOTO_ROUTE}/${filename}?exp=${expiresAt}&sig=${signature(filename, expiresAt)}`;
 }
 
 export function verifyPhotoSignature(filename: string, exp: unknown, sig: unknown, now = Date.now()): boolean {
@@ -74,9 +83,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * firmados en cualquier respuesta (objetos y arreglos anidados). Conserva
  * fechas, decimales y demás instancias tal como están.
  */
-export function withSignedPhotos<T>(value: T, ttlSeconds = PHOTO_URL_TTL_SECONDS, now = Date.now()): T {
+export function withSignedPhotos<T>(value: T, ttlSeconds = PHOTO_URL_TTL_SECONDS, now = Date.now(), baseUrl = ''): T {
   if (Array.isArray(value)) {
-    return value.map((item) => withSignedPhotos(item, ttlSeconds, now)) as T;
+    return value.map((item) => withSignedPhotos(item, ttlSeconds, now, baseUrl)) as T;
   }
   if (!isPlainObject(value)) return value;
 
@@ -84,8 +93,8 @@ export function withSignedPhotos<T>(value: T, ttlSeconds = PHOTO_URL_TTL_SECONDS
   for (const [key, item] of Object.entries(value)) {
     result[key] =
       key === 'foto_entrada_url' || key === 'foto_salida_url'
-        ? signPhotoUrl(item as WithPhotos['foto_entrada_url'], ttlSeconds, now)
-        : withSignedPhotos(item, ttlSeconds, now);
+        ? signPhotoUrl(item as WithPhotos['foto_entrada_url'], ttlSeconds, now, baseUrl)
+        : withSignedPhotos(item, ttlSeconds, now, baseUrl);
   }
   return result as T;
 }

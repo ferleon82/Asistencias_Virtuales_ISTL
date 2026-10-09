@@ -17,6 +17,13 @@ describe('enlaces firmados de fotos', () => {
     expect(verifyPhotoSignature(archivo, exp, sig, now)).toBe(true);
   });
 
+  it('genera enlaces absolutos cuando se indica la dirección pública', () => {
+    const url = signPhotoUrl(ref, 3600, now, 'https://api.ejemplo.edu.ec/')!;
+    expect(url).toMatch(/^https:\/\/api\.ejemplo\.edu\.ec\/api\/v1\/fotos\/user-1-entrada-1760000000000\.jpg\?exp=\d+&sig=/);
+    const { archivo, exp, sig } = parse(url);
+    expect(verifyPhotoSignature(archivo, exp, sig, now)).toBe(true);
+  });
+
   it('rechaza enlaces vencidos', () => {
     const { archivo, exp, sig } = parse(signPhotoUrl(ref, 3600, now)!);
     expect(verifyPhotoSignature(archivo, exp, sig, now + 3601_000)).toBe(false);
