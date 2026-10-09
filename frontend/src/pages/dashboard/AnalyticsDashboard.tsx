@@ -71,6 +71,12 @@ function percent(value: number, total: number): string {
   return `${Math.round((value / total) * 100)}%`;
 }
 
+/** Ancho de barra en %, limitado a 0–100 para que nunca desborde su contenedor. */
+function barWidth(value: number, total: number): string {
+  if (!total) return '0%';
+  return `${Math.min(100, Math.max(0, (value / total) * 100))}%`;
+}
+
 export function AnalyticsDashboard({
   reportSummary,
   reportFrom,
@@ -422,17 +428,21 @@ export function AnalyticsDashboard({
               </p>
             </div>
           </div>
-          <div className="mt-4 space-y-3">
+          {/* Base común: clases programadas. Cada clase termina en un solo estado, así
+              que los porcentajes suman ~100%. Las ausencias no son registros, por eso
+              dividir por registros daba valores como 4200%. */}
+          <p className="mt-4 text-xs text-slate-500">Sobre {totalProgramadas} clases programadas</p>
+          <div className="mt-2 space-y-3">
             {stateBars.map((item) => (
               <div key={item.label}>
                 <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
                   <span>{item.label}</span>
-                  <span>{percent(item.value, totalRegistros)}</span>
+                  <span>{percent(item.value, totalProgramadas)}</span>
                 </div>
                 <div className="h-2 rounded-full bg-slate-100">
                   <div
                     className={`h-2 rounded-full ${item.color}`}
-                    style={{ width: percent(item.value, totalRegistros) }}
+                    style={{ width: barWidth(item.value, totalProgramadas) }}
                   />
                 </div>
               </div>
