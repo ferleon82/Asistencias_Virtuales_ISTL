@@ -288,27 +288,35 @@ export class HorariosService {
   private async assertNoOverlap(data: CreateHorarioInput, excludeId?: string): Promise<void> {
     if (!data.activo) return;
 
-    const existing = await prisma.horario.findMany({
-      where: {
-        id: excludeId ? { not: excludeId } : undefined,
-        docente_id: data.docente_id,
-        periodo_academico_id: data.periodo_academico_id ?? undefined,
-        dia_semana: data.dia_semana,
-        ciclo: data.periodo_academico_id ? undefined : data.ciclo,
-        activo: true,
-      },
-      select: {
-        hora_inicio: true,
-        hora_fin: true,
-      },
-    });
+    const [academicos, administrativos] = await Promise.all([
+      prisma.horario.findMany({
+        where: {
+          id: excludeId ? { not: excludeId } : undefined,
+          docente_id: data.docente_id,
+          periodo_academico_id: data.periodo_academico_id ?? undefined,
+          dia_semana: data.dia_semana,
+          ciclo: data.periodo_academico_id ? undefined : data.ciclo,
+          activo: true,
+        },
+        select: { hora_inicio: true, hora_fin: true },
+      }),
+      prisma.horarioAdministrativo.findMany({
+        where: {
+          docente_id: data.docente_id,
+          periodo_academico_id: data.periodo_academico_id,
+          dia_semana: data.dia_semana,
+          activo: true,
+        },
+        select: { hora_inicio: true, hora_fin: true },
+      }),
+    ]);
 
-    const hasOverlap = existing.some((item) =>
-      overlaps(data.hora_inicio, data.hora_fin, item.hora_inicio, item.hora_fin)
-    );
+    if (academicos.some((item) => overlaps(data.hora_inicio, data.hora_fin, item.hora_inicio, item.hora_fin))) {
+      throw new AppError('Ya existe un horario activo que se cruza para este docente, día y ciclo.', 409);
+    }
 
-    if (hasOverlap) {
-      throw new AppError('Ya existe un horario activo que se cruza para este docente, d�a y ciclo.', 409);
+    if (administrativos.some((item) => overlaps(data.hora_inicio, data.hora_fin, item.hora_inicio, item.hora_fin))) {
+      throw new AppError('El horario se cruza con una hora administrativa activa del docente.', 409);
     }
   }
 
