@@ -6,16 +6,9 @@ import { AppError } from '../../shared/middleware/errorHandler';
 import { prisma } from '../../config/database';
 import { AuthService } from './auth.service';
 import { env } from '../../config/env';
+import { getClientIp } from '../../shared/utils/request';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
-
-function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    return Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim();
-  }
-  return req.socket.remoteAddress ?? 'unknown';
-}
 
 function googleEnabled(): boolean {
   return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);

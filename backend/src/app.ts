@@ -22,6 +22,11 @@ import horasAdministrativasRoutes from './modules/horas-administrativas/horas-ad
 export function createApp(): Application {
   const app = express();
 
+  // Detrás de un proxy (Render, nginx) la IP real llega en X-Forwarded-For.
+  // Sin esto todas las peticiones comparten la IP del proxy y los rate limiters
+  // bloquean a toda la institución a la vez.
+  app.set('trust proxy', env.TRUST_PROXY);
+
   // ── Seguridad ────────────────────────────────────────────────────────────────
   app.use(
     helmet({

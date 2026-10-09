@@ -1,10 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
 import { AppError } from '../../shared/middleware/errorHandler';
+import { getClientIp as ip } from '../../shared/utils/request';
 import { horasAdministrativasService } from './horas-administrativas.service';
 import { createHorarioAdministrativoSchema, horarioAdministrativoParamsSchema, horarioAdministrativoQuerySchema, locationSchema, updateHorarioAdministrativoSchema } from './horas-administrativas.schemas';
 
 function user(req: Request) { if (!req.user) throw new AppError('Autenticación requerida.', 401); return req.user; }
-function ip(req: Request) { const forwarded = req.headers['x-forwarded-for']; return forwarded ? (Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim()) : req.socket.remoteAddress ?? 'unknown'; }
 
 export async function listHorariosAdministrativos(req: Request, res: Response, next: NextFunction) { try { res.json({ ok: true, data: await horasAdministrativasService.list(horarioAdministrativoQuerySchema.parse(req.query), user(req)) }); } catch (error) { next(error); } }
 export async function listRegistrosAdministrativos(_req: Request, res: Response, next: NextFunction) { try { res.json({ ok: true, data: await horasAdministrativasService.listRecords() }); } catch (error) { next(error); } }

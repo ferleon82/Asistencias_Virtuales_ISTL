@@ -15,6 +15,9 @@ const envSchema = z.object({
 
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
 
+  // Saltos de proxy confiables delante de la API (Render = 1). 0 desactiva.
+  TRUST_PROXY: z.coerce.number().int().min(0).default(1),
+
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_CALLBACK_URL: z.string().url().default('http://localhost:3000/api/v1/auth/google/callback'),

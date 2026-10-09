@@ -64,6 +64,7 @@ services:
       API_RATE_LIMIT_MAX: ${API_RATE_LIMIT_MAX:-1000}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-5}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
       TZ: America/Guayaquil
     volumes:
       - ./backend/src:/app/src
