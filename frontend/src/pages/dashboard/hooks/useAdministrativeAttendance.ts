@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../../../lib/axios';
 import { getBrowserLocation } from '../geolocation';
+import { getApiMessage } from '../../../lib/apiError';
 
 type Action = 'entrada' | 'salida';
 
@@ -13,10 +14,6 @@ export interface AdministrativeAttendanceState {
   salidaDisponibleDesde?: string | null;
   salidaDisponibleHasta?: string | null;
   salidaBloqueadaMotivo?: string | null;
-}
-
-function message(error: unknown, fallback: string) {
-  return (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
 }
 
 export function useAdministrativeAttendance(userRole?: string, onMarked?: () => Promise<void>) {
@@ -37,7 +34,7 @@ export function useAdministrativeAttendance(userRole?: string, onMarked?: () => 
       const { data } = await api.get('/horas-administrativas/estado-actual');
       setState(data.data);
     } catch (requestError) {
-      setError(message(requestError, 'No se pudo obtener el estado administrativo.'));
+      setError(getApiMessage(requestError, 'No se pudo obtener el estado administrativo.'));
     }
   }, [userRole]);
 
@@ -57,7 +54,7 @@ export function useAdministrativeAttendance(userRole?: string, onMarked?: () => 
       await reload();
       await onMarked?.();
     } catch (requestError) {
-      setError(message(requestError, 'No se pudo registrar la asistencia administrativa.'));
+      setError(getApiMessage(requestError, 'No se pudo registrar la asistencia administrativa.'));
     } finally { setLoading(false); }
   };
 

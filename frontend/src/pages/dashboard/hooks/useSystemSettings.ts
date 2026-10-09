@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from '../../../lib/axios';
 import type { SystemSettings } from '../types';
+import { getApiMessage } from '../../../lib/apiError';
 
-function getApiMessage(error: unknown, fallback: string): string {
-  return (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
-}
 
 const defaultSettings: SystemSettings = {
   attendance_photo_required: false,

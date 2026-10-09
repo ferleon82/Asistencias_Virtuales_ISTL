@@ -1,41 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
 import api from '../../../lib/axios';
 import type {
   CarreraOption,
   DocenteOption,
-  HorarioForm,
   HorarioItem,
-  MateriaForm,
   MateriaOption,
   PeriodoAcademicoOption,
 } from '../types';
+import { getApiMessage } from '../../../lib/apiError';
 
 type UseAdminDataParams = {
   canManageSchedules: boolean;
-  setAdminError: (message: string) => void;
-  setHorarioForm: Dispatch<SetStateAction<HorarioForm>>;
-  setMateriaForm: Dispatch<SetStateAction<MateriaForm>>;
 };
 
-function getApiMessage(error: unknown, fallback: string): string {
-  return (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
-}
 
-export function useAdminData({
-  canManageSchedules,
-  setAdminError,
-  setHorarioForm,
-  setMateriaForm,
-}: UseAdminDataParams) {
+/**
+ * Datos de referencia del panel (carreras, materias, docentes, períodos y
+ * horarios). Se recargan cada 30 s y al volver a la pestaña. Los formularios
+ * que dependen de estos datos aplican sus valores por defecto por su cuenta.
+ */
+export function useAdminData({ canManageSchedules }: UseAdminDataParams) {
   const [carreras, setCarreras] = useState<CarreraOption[]>([]);
   const [materias, setMaterias] = useState<MateriaOption[]>([]);
   const [docentes, setDocentes] = useState<DocenteOption[]>([]);
   const [horarios, setHorarios] = useState<HorarioItem[]>([]);
   const [periodosAcademicos, setPeriodosAcademicos] = useState<PeriodoAcademicoOption[]>([]);
+  const [loadError, setLoadError] = useState('');
 
   const loadAdminData = useCallback(async () => {
-    setAdminError('');
+    setLoadError('');
 
     try {
       if (!canManageSchedules) {
@@ -62,30 +55,10 @@ export function useAdminData({
       setDocentes(docentesData);
       setPeriodosAcademicos(periodosData);
       setHorarios(horariosResponse.data.data);
-
-      setHorarioForm((current) => {
-        const selectedPeriodo =
-          periodosData.find((periodo) => periodo.id === current.periodo_academico_id) ??
-          periodosData.find((periodo) => periodo.activo);
-
-        return {
-          ...current,
-          materia_id: current.materia_id || materiasData[0]?.id || '',
-          docente_id: current.docente_id || docentesData[0]?.id || '',
-          periodo_academico_id: current.periodo_academico_id || selectedPeriodo?.id || '',
-          ciclo: selectedPeriodo?.codigo ?? current.ciclo,
-          fecha_inicio_ciclo: selectedPeriodo?.fecha_inicio.slice(0, 10) ?? current.fecha_inicio_ciclo,
-          fecha_fin_ciclo: selectedPeriodo?.fecha_fin.slice(0, 10) ?? current.fecha_fin_ciclo,
-        };
-      });
-      setMateriaForm((current) => ({
-        ...current,
-        carrera_id: current.carrera_id || carrerasData[0]?.id || '',        ciclo: current.ciclo || 1,
-      }));
     } catch (error) {
-      setAdminError(getApiMessage(error, 'No se pudo cargar la información administrativa.'));
+      setLoadError(getApiMessage(error, 'No se pudo cargar la información administrativa.'));
     }
-  }, [canManageSchedules, setAdminError, setHorarioForm, setMateriaForm]);
+  }, [canManageSchedules]);
 
   useEffect(() => {
     void loadAdminData();
@@ -119,6 +92,7 @@ export function useAdminData({
     docentes,
     periodosAcademicos,
     horarios,
+    loadError,
     loadAdminData,
   };
 }

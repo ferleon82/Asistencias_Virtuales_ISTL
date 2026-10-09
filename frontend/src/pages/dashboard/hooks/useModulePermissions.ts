@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../../../lib/axios';
 import type { ModulePermission } from '../types';
+import { getApiMessage } from '../../../lib/apiError';
 
 const defaultPermissions: Record<string, string[]> = {
   docente: ['teacher_attendance', 'teacher_day', 'reports'],
@@ -10,9 +11,6 @@ const defaultPermissions: Record<string, string[]> = {
   talento_humano: ['analytics', 'users', 'academic', 'schedules', 'reports', 'administrative_hours'],
 };
 
-function getApiMessage(error: unknown, fallback: string): string {
-  return (error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback;
-}
 
 export function useModulePermissions(userRole?: string) {
   const [permissions, setPermissions] = useState<ModulePermission[]>([]);
