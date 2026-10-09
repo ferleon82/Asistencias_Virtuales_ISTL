@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
-import path from 'node:path';
 import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './shared/middleware/errorHandler';
 import { apiRateLimiter } from './shared/middleware/rateLimiter';
@@ -16,6 +15,7 @@ import reportesRoutes from './modules/reportes/reportes.routes';
 import docsRoutes from './modules/docs/docs.routes';
 import adminRoutes from './modules/admin/admin.routes';
 import horasAdministrativasRoutes from './modules/horas-administrativas/horas-administrativas.routes';
+import fotosRoutes from './modules/fotos/fotos.routes';
 
 // ─── Aplicación Express ────────────────────────────────────────────────────────
 
@@ -71,7 +71,6 @@ export function createApp(): Application {
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true, limit: '2mb' }));
   app.use(compression());
-  app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
   // ── Logger ───────────────────────────────────────────────────────────────────
   if (env.NODE_ENV !== 'test') {
@@ -100,6 +99,8 @@ export function createApp(): Application {
   app.use('/api/v1/horas-administrativas', horasAdministrativasRoutes);
   app.use('/api/v1/reportes', reportesRoutes);
   app.use('/api/v1/admin', adminRoutes);
+  // Fotos de asistencia: solo con enlace firmado (ya no se sirve /uploads públicamente).
+  app.use('/api/v1/fotos', fotosRoutes);
 
   // ── 404 ──────────────────────────────────────────────────────────────────────
   app.use(notFoundHandler);

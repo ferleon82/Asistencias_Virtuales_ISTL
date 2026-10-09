@@ -253,6 +253,26 @@ La especificacion OpenAPI documenta los endpoints principales, OAuth institucion
 - CORS configurable para produccion.
 - Control de acceso por roles.
 - Registro de auditoria para eventos relevantes.
+- En cada peticion se confirma que el usuario siga activo y se usa su rol vigente (cache de 30 s).
+- `TRUST_PROXY` indica cuantos proxies hay delante del backend (Render = 1) para obtener la IP real.
+- Las fotos de asistencia no son publicas: se entregan con enlaces firmados que vencen
+  (2 horas en pantalla, 7 dias en el Excel exportado) en `/api/v1/fotos/:archivo`.
+
+### Fotos de asistencia en Supabase Storage (produccion)
+
+En Render el disco se borra en cada despliegue, por lo que en produccion las fotos
+se guardan en un bucket privado de Supabase:
+
+1. En Supabase, **Storage > New bucket**: nombre `asistencias-fotos`, **Public bucket desactivado**.
+2. En Render, variables del backend:
+   - `PHOTO_STORAGE=supabase`
+   - `SUPABASE_URL=https://<proyecto>.supabase.co`
+   - `SUPABASE_SERVICE_ROLE_KEY=<service role key>` (Project Settings > API). Es una clave
+     administrativa: solo en el backend, nunca en el frontend ni en el repositorio.
+   - `SUPABASE_PHOTO_BUCKET=asistencias-fotos` (opcional, es el valor por defecto).
+
+En desarrollo `PHOTO_STORAGE=local` guarda las fotos en `backend/uploads/asistencias/`.
+Las fotos tomadas antes de este cambio en el disco de Render no se migran automaticamente.
 
 ---
 

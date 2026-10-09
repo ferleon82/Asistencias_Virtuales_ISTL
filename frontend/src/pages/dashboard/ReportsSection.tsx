@@ -5,9 +5,10 @@ import type { CarreraOption, DocenteOption, MateriaOption, PeriodoAcademicoOptio
 
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 
+// La API entrega enlaces firmados relativos (/api/v1/fotos/...) que vencen.
 function attendancePhotoUrl(url?: string): string {
   if (!url) return '';
-  return url.startsWith('/uploads') ? `${API_URL}${url}` : url;
+  return url.startsWith('/') ? `${API_URL}${url}` : url;
 }
 
 interface ReportsSectionProps {

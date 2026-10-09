@@ -1,13 +1,13 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import { AppError } from '../middleware/errorHandler';
+import { getPhotoStorage } from '../storage/photoStorage';
+import { photoReference } from './photoUrls';
 
 const MAX_PHOTO_BYTES = 650_000;
-const uploadsDir = path.resolve(process.cwd(), 'uploads', 'asistencias');
 
 /**
- * Valida y guarda la foto de una marcación. Devuelve la URL pública relativa o
- * `null` cuando no se envió foto y no es obligatoria.
+ * Valida y guarda la foto de una marcación. Devuelve la referencia que se guarda
+ * en la base (no es pública: se entrega con enlaces firmados) o `null` cuando no
+ * se envió foto y no es obligatoria.
  *
  * @param prefijo identifica el origen en el nombre del archivo (p. ej. `entrada`
  *   o `administrativa-salida`).
@@ -33,12 +33,10 @@ export async function saveAttendancePhoto(
     throw new AppError('La foto de asistencia supera el tamaño permitido.', 413);
   }
 
-  await fs.mkdir(uploadsDir, { recursive: true });
-
   const safeUserId = userId.replace(/[^a-zA-Z0-9-]/g, '');
   const extension = match[1] === 'png' ? 'png' : 'jpg';
   const filename = `${safeUserId}-${prefijo}-${Date.now()}.${extension}`;
-  await fs.writeFile(path.join(uploadsDir, filename), buffer);
+  await getPhotoStorage().save(filename, buffer, extension === 'png' ? 'image/png' : 'image/jpeg');
 
-  return `/uploads/asistencias/${filename}`;
+  return photoReference(filename);
 }

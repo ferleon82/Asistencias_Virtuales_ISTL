@@ -1,6 +1,7 @@
 import { Rol } from '@prisma/client';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { currentTime } from '../../shared/attendance/clock';
+import { PHOTO_URL_EXPORT_TTL_SECONDS, PHOTO_URL_TTL_SECONDS, withSignedPhotos } from '../../shared/attendance/photoUrls';
 import { renderReportExcel } from './reportes.excel';
 import { renderReportPdf } from './reportes.pdf';
 import {
@@ -22,7 +23,12 @@ import { buildAttendanceSummary, type AttendanceMark, type ScheduleSlot } from '
 import type { ReportRow, ReportScope as AuthScope, ReportSummaryData } from './reportes.types';
 
 export class ReportesService {
-  async resumen(filters: ReporteQueryInput, user: AuthScope) {
+  /** Resumen para la pantalla, con enlaces de foto firmados por pocas horas. */
+  async resumen(filters: ReporteQueryInput, user: AuthScope): Promise<ReportSummaryData> {
+    return withSignedPhotos(await this.calcular(filters, user), PHOTO_URL_TTL_SECONDS);
+  }
+
+  private async calcular(filters: ReporteQueryInput, user: AuthScope): Promise<ReportSummaryData> {
     if (filters.tipo === 'administrativa') {
       return this.resumenAdministrativa(filters, user);
     }
@@ -126,11 +132,11 @@ export class ReportesService {
   }
 
   async excel(filters: ReporteQueryInput, user: AuthScope): Promise<Buffer> {
-    return renderReportExcel(await this.resumen(filters, user));
+    return renderReportExcel(withSignedPhotos(await this.calcular(filters, user), PHOTO_URL_EXPORT_TTL_SECONDS));
   }
 
   async pdf(filters: ReporteQueryInput, user: AuthScope): Promise<Buffer> {
-    return renderReportPdf(await this.resumen(filters, user));
+    return renderReportPdf(await this.calcular(filters, user));
   }
 }
 

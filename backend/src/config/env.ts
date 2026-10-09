@@ -23,10 +23,19 @@ const envSchema = z.object({
   GOOGLE_CALLBACK_URL: z.string().url().default('http://localhost:3000/api/v1/auth/google/callback'),
   GOOGLE_ALLOWED_DOMAIN: z.string().default('tecnologicoloja.edu.ec'),
 
+  // Fotos de asistencia: disco local (desarrollo) o bucket privado de Supabase (producción).
+  PHOTO_STORAGE: z.enum(['local', 'supabase']).default('local'),
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  SUPABASE_PHOTO_BUCKET: z.string().min(1).default('asistencias-fotos'),
+
   API_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000),
   API_RATE_LIMIT_MAX: z.coerce.number().default(1000),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000),
   RATE_LIMIT_MAX: z.coerce.number().default(5),
+}).refine((data) => data.PHOTO_STORAGE !== 'supabase' || (data.SUPABASE_URL && data.SUPABASE_SERVICE_ROLE_KEY), {
+  message: 'PHOTO_STORAGE=supabase requiere SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY',
+  path: ['PHOTO_STORAGE'],
 });
 
 export type Env = z.infer<typeof envSchema>;
