@@ -1,9 +1,16 @@
-import { DiaSemana, EstadoAsistencia, Prisma, Rol } from '@prisma/client';
+import { Prisma, Rol } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { prisma } from '../../config/database';
 import { AppError } from '../../shared/middleware/errorHandler';
 import type { ReporteQueryInput } from './reportes.schemas';
+import {
+  buildAttendanceSummary,
+  type AttendanceMark,
+  type DaySummary,
+  type GroupSummary,
+  type ScheduleSlot,
+} from './reportes.sessions';
 
 interface AuthScope {
   id: string;
@@ -53,35 +60,10 @@ interface ReportSummaryData {
   justificado: number;
   ausente: number;
   registros: ReportRow[];
-  porCarrera: ReportCareerSummary[];
-  porPeriodo: ReportPeriodSummary[];
+  porCarrera: GroupSummary[];
+  porPeriodo: DaySummary[];
 }
 
-interface ReportCareerSummary {
-  carrera: string;
-  codigo: string;
-  programadas: number;
-  registros: number;
-  presentes: number;
-  puntual: number;
-  tardanza: number;
-  ausente: number;
-  justificado: number;
-}
-
-interface ReportPeriodSummary {
-  periodo: string;
-  programadas: number;
-  registros: number;
-  presentes: number;
-  puntual: number;
-  tardanza: number;
-  ausente: number;
-  justificado: number;
-}
-
-type HorarioProgramado = Awaited<ReturnType<typeof fetchHorariosProgramados>>[number];
-type RegistroAsistencia = Awaited<ReturnType<typeof fetchRegistros>>[number];
 type RegistroAdministrativo = Awaited<ReturnType<typeof fetchRegistrosAdministrativos>>[number];
 
 const asistenciaInclude = {
@@ -155,9 +137,12 @@ async function resolveRange(filters: ReporteQueryInput): Promise<{ from: Date; t
 
   if (!periodo) return defaultRange(filters);
 
+  // fecha_inicio/fecha_fin son @db.Date (medianoche UTC): se interpretan como días de Ecuador.
+  const periodoFin = endOfDay(ecuadorDateOnly(periodo.fecha_fin));
+  const hoy = endOfDay(new Date());
   return {
-    from: startOfDay(periodo.fecha_inicio),
-    to: endOfDay(new Date()),
+    from: ecuadorDateOnly(periodo.fecha_inicio),
+    to: periodoFin < hoy ? periodoFin : hoy,
   };
 }
 
@@ -213,10 +198,11 @@ function filterWhere(filters: ReporteQueryInput, from: Date, to: Date): Prisma.R
   return {
     docente_id: filters.docente_id,
     estado: filters.estado,
-    timestamp_entrada: {
-      gte: from,
-      lte: to,
-    },
+    // Las justificaciones sin marcación no tienen hora de entrada: se ubican por fecha de creación.
+    OR: [
+      { timestamp_entrada: { gte: from, lte: to } },
+      { timestamp_entrada: null, created_at: { gte: from, lte: to } },
+    ],
     horario: {
       ...periodoFilter,
       materia_id: filters.materia_id,
@@ -421,82 +407,6 @@ function drawReportRow(document: PDFKit.PDFDocument, row: ReportRow, y: number, 
   return y + rowHeight;
 }
 
-function dateKey(date: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Guayaquil',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
-}
-
-function dateLabel(date: Date): string {
-  return new Intl.DateTimeFormat('es-EC', {
-    timeZone: 'America/Guayaquil',
-    day: '2-digit',
-    month: 'short',
-  }).format(date);
-}
-
-function eachDay(from: Date, to: Date): Date[] {
-  const days: Date[] = [];
-  const cursor = startOfDay(from);
-  const end = startOfDay(to);
-
-  while (cursor <= end) {
-    days.push(new Date(cursor));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  return days;
-}
-
-function scheduledDatesForHorario(from: Date, to: Date, dia: DiaSemana): string[] {
-  const dayMap: Record<DiaSemana, number> = {
-    lunes: 1,
-    martes: 2,
-    miercoles: 3,
-    jueves: 4,
-    viernes: 5,
-    sabado: 6,
-  };
-
-  return eachDay(from, to)
-    .filter((day) => day.getDay() === dayMap[dia])
-    .map(dateKey);
-}
-
-function sessionKey(horarioId: string, date: Date): string {
-  return `${horarioId}:${dateKey(date)}`;
-}
-
-function emptyCareerSummary(carrera: string, codigo: string): ReportCareerSummary {
-  return {
-    carrera,
-    codigo,
-    programadas: 0,
-    registros: 0,
-    presentes: 0,
-    puntual: 0,
-    tardanza: 0,
-    ausente: 0,
-    justificado: 0,
-  };
-}
-
-function emptyPeriodSummary(periodo: string): ReportPeriodSummary {
-  return {
-    periodo,
-    programadas: 0,
-    registros: 0,
-    presentes: 0,
-    puntual: 0,
-    tardanza: 0,
-    ausente: 0,
-    justificado: 0,
-  };
-}
-
 function toRows(registros: Awaited<ReturnType<typeof fetchRegistros>>): ReportRow[] {
   return registros.map((registro) => ({
     id: registro.id,
@@ -542,6 +452,9 @@ async function fetchHorariosProgramados(where: Prisma.HorarioWhereInput) {
     select: {
       id: true,
       dia_semana: true,
+      hora_inicio: true,
+      fecha_inicio_ciclo: true,
+      fecha_fin_ciclo: true,
       periodo_academico: {
         select: {
           nombre: true,
@@ -605,55 +518,6 @@ function toAdministrativeRows(registros: RegistroAdministrativo[]): ReportRow[] 
   }));
 }
 
-function addScheduledSession(
-  scheduledSessions: Set<string>,
-  horario: HorarioProgramado | RegistroAsistencia['horario'],
-  date: Date,
-  porCarreraMap: Map<string, ReportCareerSummary>,
-  porPeriodoMap: Map<string, ReportPeriodSummary>
-): void {
-  const key = sessionKey(horario.id, date);
-  if (scheduledSessions.has(key)) return;
-
-  scheduledSessions.add(key);
-
-  const carrera = horario.materia.carrera;
-  const carreraKey = carrera.codigo;
-  const carreraSummary = porCarreraMap.get(carreraKey) ?? emptyCareerSummary(carrera.nombre, carrera.codigo);
-  carreraSummary.programadas += 1;
-  porCarreraMap.set(carreraKey, carreraSummary);
-
-  const periodKey = dateKey(date);
-  const periodSummary = porPeriodoMap.get(periodKey) ?? emptyPeriodSummary(dateLabel(date));
-  periodSummary.programadas += 1;
-  porPeriodoMap.set(periodKey, periodSummary);
-}
-
-function addPresentSession(
-  presentSessions: Set<string>,
-  registro: RegistroAsistencia,
-  porCarreraMap: Map<string, ReportCareerSummary>,
-  porPeriodoMap: Map<string, ReportPeriodSummary>
-): void {
-  if (!registro.timestamp_entrada) return;
-
-  const key = sessionKey(registro.horario.id, registro.timestamp_entrada);
-  if (presentSessions.has(key)) return;
-
-  presentSessions.add(key);
-
-  const carrera = registro.horario.materia.carrera;
-  const carreraKey = carrera.codigo;
-  const carreraSummary = porCarreraMap.get(carreraKey) ?? emptyCareerSummary(carrera.nombre, carrera.codigo);
-  carreraSummary.presentes += 1;
-  porCarreraMap.set(carreraKey, carreraSummary);
-
-  const periodKey = dateKey(registro.timestamp_entrada);
-  const periodSummary = porPeriodoMap.get(periodKey) ?? emptyPeriodSummary(dateLabel(registro.timestamp_entrada));
-  periodSummary.presentes += 1;
-  porPeriodoMap.set(periodKey, periodSummary);
-}
-
 export class ReportesService {
   async resumen(filters: ReporteQueryInput, user: AuthScope) {
     if (filters.tipo === 'administrativa') {
@@ -662,94 +526,31 @@ export class ReportesService {
     return this.resumenDocente(filters, user);
   }
 
-  private async resumenDocente(filters: ReporteQueryInput, user: AuthScope) {
+  private async resumenDocente(filters: ReporteQueryInput, user: AuthScope): Promise<ReportSummaryData> {
     const scoped = scopedFilters(filters, user);
     const { from, to } = await resolveRange(scoped);
-    const where: Prisma.RegistroAsistenciaWhereInput = {
-      AND: [roleWhere(user), filterWhere(scoped, from, to)],
-    };
+    const [registros, horariosProgramados] = await Promise.all([
+      fetchRegistros({ AND: [roleWhere(user), filterWhere(scoped, from, to)] }),
+      fetchHorariosProgramados({ AND: [roleHorarioWhere(user), filterHorarioWhere(scoped, from, to)] }),
+    ]);
 
-    const registros = await fetchRegistros(where);
-    const horariosProgramados = await fetchHorariosProgramados({
-      AND: [roleHorarioWhere(user), filterHorarioWhere(scoped, from, to)],
-    });
+    const slots: ScheduleSlot[] = horariosProgramados.map((horario) => ({
+      id: horario.id,
+      dia_semana: horario.dia_semana,
+      hora_inicio: horario.hora_inicio,
+      fecha_inicio: horario.fecha_inicio_ciclo,
+      fecha_fin: horario.fecha_fin_ciclo,
+      grupo: horario.materia.carrera,
+    }));
+    const marks: AttendanceMark[] = registros.map((registro) => ({
+      slotId: registro.horario_id,
+      grupo: registro.horario.materia.carrera,
+      estado: registro.estado,
+      timestamp_entrada: registro.timestamp_entrada,
+      created_at: registro.created_at,
+    }));
 
-    const byEstado = registros.reduce<Record<EstadoAsistencia, number>>(
-      (acc, registro) => {
-        acc[registro.estado] += 1;
-        return acc;
-      },
-      {
-        puntual: 0,
-        tardanza: 0,
-        ausente: 0,
-        justificado: 0,
-      }
-    );
-
-    const porCarreraMap = new Map<string, ReportCareerSummary>();
-    const porPeriodoMap = new Map<string, ReportPeriodSummary>();
-    const scheduledSessions = new Set<string>();
-    const presentSessions = new Set<string>();
-
-    eachDay(from, to).forEach((day) => {
-      porPeriodoMap.set(dateKey(day), emptyPeriodSummary(dateLabel(day)));
-    });
-
-    horariosProgramados.forEach((horario) => {
-      scheduledDatesForHorario(from, to, horario.dia_semana).forEach((scheduledDate) => {
-        addScheduledSession(scheduledSessions, horario, new Date(`${scheduledDate}T00:00:00-05:00`), porCarreraMap, porPeriodoMap);
-      });
-    });
-
-    registros.forEach((registro) => {
-      if (registro.timestamp_entrada) {
-        addScheduledSession(scheduledSessions, registro.horario, registro.timestamp_entrada, porCarreraMap, porPeriodoMap);
-        addPresentSession(presentSessions, registro, porCarreraMap, porPeriodoMap);
-      }
-
-      const carrera = registro.horario.materia.carrera;
-      const carreraKey = carrera.codigo;
-      const carreraSummary =
-        porCarreraMap.get(carreraKey) ?? emptyCareerSummary(carrera.nombre, carrera.codigo);
-      carreraSummary.registros += 1;
-      carreraSummary[registro.estado] += 1;
-      porCarreraMap.set(carreraKey, carreraSummary);
-
-      if (registro.timestamp_entrada) {
-        const periodKey = dateKey(registro.timestamp_entrada);
-        const periodSummary = porPeriodoMap.get(periodKey) ?? emptyPeriodSummary(dateLabel(registro.timestamp_entrada));
-        periodSummary.registros += 1;
-        periodSummary[registro.estado] += 1;
-        porPeriodoMap.set(periodKey, periodSummary);
-      }
-    });
-
-    porCarreraMap.forEach((summary) => {
-      summary.ausente += Math.max(summary.programadas - summary.presentes, 0);
-    });
-
-    porPeriodoMap.forEach((summary) => {
-      summary.ausente += Math.max(summary.programadas - summary.presentes, 0);
-    });
-
-    return {
-      tipo: 'docente' as const,
-      periodo: {
-        fecha_inicio: from.toISOString(),
-        fecha_fin: to.toISOString(),
-      },
-      totalProgramadas: scheduledSessions.size,
-      totalRegistros: registros.length,
-      presentes: presentSessions.size,
-      puntual: byEstado.puntual,
-      tardanza: byEstado.tardanza,
-      justificado: byEstado.justificado,
-      ausente: byEstado.ausente + Math.max(scheduledSessions.size - presentSessions.size, 0),
-      registros: toRows(registros),
-      porCarrera: Array.from(porCarreraMap.values()).sort((a, b) => a.carrera.localeCompare(b.carrera)),
-      porPeriodo: Array.from(porPeriodoMap.values()),
-    };
+    return this.toSummaryData('docente', from, to, buildAttendanceSummary({ from, to, now: new Date(), slots, marks }), toRows(registros));
   }
 
   private async resumenAdministrativa(filters: ReporteQueryInput, user: AuthScope): Promise<ReportSummaryData> {
@@ -758,13 +559,6 @@ export class ReportesService {
     }
     const scoped = scopedFilters(filters, user);
     const { from, to } = await resolveRange(scoped);
-    const scheduleWhere: Prisma.HorarioAdministrativoWhereInput = {
-      activo: true,
-      docente_id: scoped.docente_id,
-      periodo_academico_id: scoped.periodo_academico_id,
-      fecha_inicio: { lte: to },
-      fecha_fin: { gte: from },
-    };
     const [registros, horarios] = await Promise.all([
       fetchRegistrosAdministrativos({
         docente_id: scoped.docente_id,
@@ -772,61 +566,59 @@ export class ReportesService {
         timestamp_entrada: { gte: from, lte: to },
         horario_administrativo: scoped.periodo_academico_id ? { periodo_academico_id: scoped.periodo_academico_id } : undefined,
       }),
-      fetchHorariosAdministrativos(scheduleWhere),
+      fetchHorariosAdministrativos({
+        activo: true,
+        docente_id: scoped.docente_id,
+        periodo_academico_id: scoped.periodo_academico_id,
+        fecha_inicio: { lte: to },
+        fecha_fin: { gte: from },
+      }),
     ]);
-    const byEstado = registros.reduce<Record<EstadoAsistencia, number>>((acc, registro) => {
-      acc[registro.estado] += 1;
-      return acc;
-    }, { puntual: 0, tardanza: 0, ausente: 0, justificado: 0 });
-    const scheduledSessions = new Set<string>();
-    const presentSessions = new Set<string>();
-    const porPeriodoMap = new Map<string, ReportPeriodSummary>();
-    eachDay(from, to).forEach((day) => porPeriodoMap.set(dateKey(day), emptyPeriodSummary(dateLabel(day))));
-    horarios.forEach((horario) => {
-      scheduledDatesForHorario(from, to, horario.dia_semana).forEach((scheduledDate) => {
-        const key = `${horario.id}:${scheduledDate}`;
-        scheduledSessions.add(key);
-        const summary = porPeriodoMap.get(scheduledDate) ?? emptyPeriodSummary(dateLabel(new Date(`${scheduledDate}T00:00:00-05:00`)));
-        summary.programadas += 1;
-        porPeriodoMap.set(scheduledDate, summary);
-      });
-    });
-    registros.forEach((registro) => {
-      if (!registro.timestamp_entrada) return;
-      const date = dateKey(registro.timestamp_entrada);
-      const key = `${registro.horario_administrativo_id}:${date}`;
-      const isFirstEntryForBlock = !presentSessions.has(key);
-      presentSessions.add(key);
-      const summary = porPeriodoMap.get(date) ?? emptyPeriodSummary(dateLabel(registro.timestamp_entrada));
-      summary.registros += 1;
-      summary[registro.estado] += 1;
-      if (isFirstEntryForBlock) {
-        summary.presentes += 1;
-      }
-      porPeriodoMap.set(date, summary);
-    });
-    porPeriodoMap.forEach((summary) => { summary.ausente += Math.max(summary.programadas - summary.presentes, 0); });
-    const carrera = emptyCareerSummary('Jornada administrativa', 'ADM');
-    carrera.programadas = scheduledSessions.size;
-    carrera.registros = registros.length;
-    carrera.presentes = presentSessions.size;
-    carrera.puntual = byEstado.puntual;
-    carrera.tardanza = byEstado.tardanza;
-    carrera.justificado = byEstado.justificado;
-    carrera.ausente = byEstado.ausente + Math.max(scheduledSessions.size - presentSessions.size, 0);
+
+    const grupo = { nombre: 'Jornada administrativa', codigo: 'ADM' };
+    const slots: ScheduleSlot[] = horarios.map((horario) => ({
+      id: horario.id,
+      dia_semana: horario.dia_semana,
+      hora_inicio: horario.hora_inicio,
+      fecha_inicio: horario.fecha_inicio,
+      fecha_fin: horario.fecha_fin,
+      grupo,
+    }));
+    const marks: AttendanceMark[] = registros.map((registro) => ({
+      slotId: registro.horario_administrativo_id,
+      grupo,
+      estado: registro.estado,
+      timestamp_entrada: registro.timestamp_entrada,
+      created_at: registro.created_at,
+    }));
+    const summary = buildAttendanceSummary({ from, to, now: new Date(), slots, marks });
+    if (summary.porGrupo.length === 0) {
+      summary.porGrupo.push({ carrera: grupo.nombre, codigo: grupo.codigo, ...summary.totals });
+    }
+
+    return this.toSummaryData('administrativa', from, to, summary, toAdministrativeRows(registros));
+  }
+
+  private toSummaryData(
+    tipo: ReportSummaryData['tipo'],
+    from: Date,
+    to: Date,
+    summary: ReturnType<typeof buildAttendanceSummary>,
+    registros: ReportRow[]
+  ): ReportSummaryData {
     return {
-      tipo: 'administrativa',
+      tipo,
       periodo: { fecha_inicio: from.toISOString(), fecha_fin: to.toISOString() },
-      totalProgramadas: scheduledSessions.size,
-      totalRegistros: registros.length,
-      presentes: presentSessions.size,
-      puntual: byEstado.puntual,
-      tardanza: byEstado.tardanza,
-      justificado: byEstado.justificado,
-      ausente: carrera.ausente,
-      registros: toAdministrativeRows(registros),
-      porCarrera: [carrera],
-      porPeriodo: Array.from(porPeriodoMap.values()),
+      totalProgramadas: summary.totals.programadas,
+      totalRegistros: summary.totals.registros,
+      presentes: summary.totals.presentes,
+      puntual: summary.totals.puntual,
+      tardanza: summary.totals.tardanza,
+      justificado: summary.totals.justificado,
+      ausente: summary.totals.ausente,
+      registros,
+      porCarrera: summary.porGrupo,
+      porPeriodo: summary.porDia,
     };
   }
 
