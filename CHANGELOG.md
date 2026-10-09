@@ -6,6 +6,16 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Horas administrativas en el dashboard
+
+- El dashboard institucional tiene un selector Clases / Horas administrativas.
+  En horas administrativas los indicadores y graficos usan los bloques
+  administrativos y el grafico principal se agrupa por docente.
+- TICs y Rectorado pueden consultar el reporte de jornada administrativa
+  (antes solo Talento Humano y el propio docente). Coordinacion no.
+- La lectura rapida del dashboard calcula los porcentajes sobre las clases
+  (o bloques) programadas: antes mostraba valores como 4200% en ausencias.
+
 ### Panel del frontend (fase 5 del refactor)
 
 - `Dashboard.tsx` paso de 1067 a ~480 lineas: la gestion de horarios y la

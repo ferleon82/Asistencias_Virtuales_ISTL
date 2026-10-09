@@ -111,7 +111,8 @@ export function ReportsSection({
             Jornada
             <select value={reportType} onChange={(event) => setReportType(event.target.value as 'docente' | 'administrativa')} className="input-control">
               <option value="docente">Jornada docente</option>
-              <option value="administrativa">Jornada administrativa</option>
+              {/* Coordinación administra carreras; la jornada administrativa no depende de una. */}
+              {userRole !== 'coordinador' && <option value="administrativa">Jornada administrativa</option>}
             </select>
           </label>
           <label className="min-w-0 text-sm text-slate-600">
