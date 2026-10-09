@@ -5,6 +5,7 @@ interface DashboardKpisProps {
   reportSummary: ReportSummary | null;
 }
 
+/** Tarjetas con la asistencia del día actual (no dependen de los filtros de Reportes). */
 export function DashboardKpis({ reportSummary }: DashboardKpisProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
@@ -44,7 +45,7 @@ export function DashboardKpis({ reportSummary }: DashboardKpisProps) {
       <KpiCard
         title="Clases del día"
         value={reportSummary?.totalProgramadas ?? 0}
-        subtitle="Programadas en total"
+        subtitle="Iniciadas hasta ahora"
         color="bg-istl-50 text-brand-navy"
         icon={
           <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">

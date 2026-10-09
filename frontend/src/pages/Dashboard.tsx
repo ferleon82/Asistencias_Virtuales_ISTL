@@ -16,6 +16,7 @@ import { useModulePermissions } from './dashboard/hooks/useModulePermissions';
 import { useReports } from './dashboard/hooks/useReports';
 import { useScheduleManagement } from './dashboard/hooks/useScheduleManagement';
 import { useSystemSettings } from './dashboard/hooks/useSystemSettings';
+import { useTodaySummary } from './dashboard/hooks/useTodaySummary';
 import { useTeacherAttendance } from './dashboard/hooks/useTeacherAttendance';
 import { useUsers } from './dashboard/hooks/useUsers';
 
@@ -116,8 +117,19 @@ export default function Dashboard() {
     reviewJustificacion,
     downloadReport,
   } = useReports({ materias, periodosAcademicos });
-  const schedules = useScheduleManagement({ materias, docentes, periodosAcademicos, loadAdminData, loadReportSummary });
-  const academic = useAcademicManagement({ carreras, loadAdminData, loadReportSummary });
+  const { todaySummary, loadTodaySummary } = useTodaySummary(canViewReports);
+  // Tras marcar o modificar datos se actualizan tanto el reporte filtrado como las tarjetas del día.
+  const refreshSummaries = useCallback(async () => {
+    await Promise.all([loadReportSummary(), loadTodaySummary()]);
+  }, [loadReportSummary, loadTodaySummary]);
+  const schedules = useScheduleManagement({
+    materias,
+    docentes,
+    periodosAcademicos,
+    loadAdminData,
+    loadReportSummary: refreshSummaries,
+  });
+  const academic = useAcademicManagement({ carreras, loadAdminData, loadReportSummary: refreshSummaries });
   const now = new Date();
   const hora = now.toLocaleTimeString('es-EC', {
     timeZone: 'America/Guayaquil',
@@ -157,7 +169,7 @@ export default function Dashboard() {
   } = useTeacherAttendance({
     userRole: user?.rol,
     diaSemanaEcuador,
-    loadReportSummary,
+    loadReportSummary: refreshSummaries,
   });
   const {
     administrativeState,
@@ -166,7 +178,7 @@ export default function Dashboard() {
     administrativeError,
     administrativeMessage,
     markAdministrative,
-  } = useAdministrativeAttendance(user?.rol, loadReportSummary);
+  } = useAdministrativeAttendance(user?.rol, refreshSummaries);
   const {
     administrativeSchedulesToday,
     administrativeHistory,
@@ -180,8 +192,8 @@ export default function Dashboard() {
   };
 
   const refreshInstitutionalData = useCallback(async () => {
-    await Promise.all([loadAdminData(), loadReportSummary(), loadAdministrativeDay()]);
-  }, [loadAdminData, loadAdministrativeDay, loadReportSummary]);
+    await Promise.all([loadAdminData(), refreshSummaries(), loadAdministrativeDay()]);
+  }, [loadAdminData, loadAdministrativeDay, refreshSummaries]);
 
   const {
     usuarios,
@@ -261,7 +273,7 @@ export default function Dashboard() {
       {/* Contenido principal */}
       <main className="mx-auto max-w-7xl px-4 py-6 animate-fade-in sm:px-6 lg:px-8 lg:py-8">
         <DashboardWelcome nombre={user?.nombre} fechaPanel={fechaPanel} hora={hora} />
-        <DashboardKpis reportSummary={reportSummary} />
+        <DashboardKpis reportSummary={todaySummary} />
 
         {moduleTabs.length > 0 && (
           <ModuleTabs moduleTabs={moduleTabs} activeModuleTab={activeModuleTab} setActiveModuleTab={setActiveModuleTab} />
