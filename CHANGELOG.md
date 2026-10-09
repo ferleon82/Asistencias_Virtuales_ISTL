@@ -6,6 +6,18 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Reportes por modulos (fase 3 del refactor)
+
+- `reportes.service.ts` se dividio en consultas y rango de fechas
+  (`reportes.query.ts`), calculo de sesiones (`reportes.sessions.ts`), formato,
+  PDF (`reportes.pdf.ts`) y Excel (`reportes.excel.ts`). Se verifico que el
+  resumen, el Excel y el PDF fueran identicos a los anteriores.
+- El rango de fechas de los reportes ya no depende de la zona horaria del
+  servidor.
+- PDF: se eliminaron las dos paginas en blanco que aparecian despues de cada
+  pagina de contenido; el pie ahora muestra "Pagina X de N".
+- Nuevas pruebas de rango de fechas, filtros por rol y exportacion.
+
 ### Logica comun de marcacion (fase 2 del refactor)
 
 - Clases y jornada administrativa comparten `backend/src/shared/attendance/`:
