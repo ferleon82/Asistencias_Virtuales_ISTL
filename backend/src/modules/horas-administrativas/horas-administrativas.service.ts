@@ -5,6 +5,7 @@ import { prisma } from '../../config/database';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { calcularEstadoAsistencia, nowInEcuador } from '../../shared/utils/timezone';
 import { getAttendanceWindows, type AttendanceWindowSettings } from '../../shared/utils/attendanceSettings';
+import { withDocenteLock, type DbClient } from '../../shared/utils/attendanceLock';
 import type { AdministrativeLocationInput, HorarioAdministrativoInput, HorarioAdministrativoQueryInput, HorarioAdministrativoUpdateInput } from './horas-administrativas.schemas';
 
 interface AuthScope { id: string; rol: string; }
@@ -114,37 +115,43 @@ export class HorasAdministrativasService {
   async marcarEntrada(user: AuthScope, location: AdministrativeLocationInput, ip: string, userAgent?: string) {
     const now = nowInEcuador();
     const windows = await getAttendanceWindows();
-    if (await this.openRecord(user.id, now)) throw new AppError('Ya existe una asistencia administrativa abierta.', 409);
-    const classOpen = await prisma.registroAsistencia.findFirst({ where: { docente_id: user.id, timestamp_salida: null, timestamp_entrada: { gte: startOfDay(now), lte: endOfDay(now) } }, select: { id: true } });
-    if (classOpen) throw new AppError('Debe marcar salida de la clase antes de iniciar una hora administrativa.', 409);
-    const horario = await this.activeSchedule(user.id, now, windows);
-    if (!horario) throw new AppError('No hay una hora administrativa activa dentro de la ventana de marcado.', 404);
-    const existing = await prisma.registroAdministrativo.findFirst({ where: { docente_id: user.id, horario_administrativo_id: horario.id, timestamp_entrada: { gte: startOfDay(now), lte: endOfDay(now) } } });
-    if (existing) throw new AppError('Esta hora administrativa ya fue marcada.', 409);
-    const estado = calcularEstadoAsistencia(now, horario.hora_inicio, now, windows.entryBeforeMinutes, windows.entryAfterMinutes);
-    if (estado === 'fuera_de_ventana') throw new AppError('La hora administrativa no está dentro de la ventana permitida.', 400);
-    const registro = await prisma.registroAdministrativo.create({ data: { docente_id: user.id, horario_administrativo_id: horario.id, timestamp_entrada: now, ip_entrada: ip, foto_entrada_url: await savePhoto(location.foto_base64, user.id, 'entrada', await photoRequired()), lat_entrada: location.lat, lng_entrada: location.lng, precision_entrada_m: location.precision_m, estado, user_agent: userAgent }, include: includeRegistro });
-    await this.audit(user.id, 'MARCAR_ENTRADA_ADMINISTRATIVA', registro.id, ip, { horario_administrativo_id: horario.id, estado });
-    return registro;
+    const required = await photoRequired();
+    return withDocenteLock(user.id, async (tx) => {
+      if (await this.openRecord(user.id, now, tx)) throw new AppError('Ya existe una asistencia administrativa abierta.', 409);
+      const classOpen = await tx.registroAsistencia.findFirst({ where: { docente_id: user.id, timestamp_salida: null, timestamp_entrada: { gte: startOfDay(now), lte: endOfDay(now) } }, select: { id: true } });
+      if (classOpen) throw new AppError('Debe marcar salida de la clase antes de iniciar una hora administrativa.', 409);
+      const horario = await this.activeSchedule(user.id, now, windows, tx);
+      if (!horario) throw new AppError('No hay una hora administrativa activa dentro de la ventana de marcado.', 404);
+      const existing = await tx.registroAdministrativo.findFirst({ where: { docente_id: user.id, horario_administrativo_id: horario.id, timestamp_entrada: { gte: startOfDay(now), lte: endOfDay(now) } } });
+      if (existing) throw new AppError('Esta hora administrativa ya fue marcada.', 409);
+      const estado = calcularEstadoAsistencia(now, horario.hora_inicio, now, windows.entryBeforeMinutes, windows.entryAfterMinutes);
+      if (estado === 'fuera_de_ventana') throw new AppError('La hora administrativa no está dentro de la ventana permitida.', 400);
+      const registro = await tx.registroAdministrativo.create({ data: { docente_id: user.id, horario_administrativo_id: horario.id, timestamp_entrada: now, ip_entrada: ip, foto_entrada_url: await savePhoto(location.foto_base64, user.id, 'entrada', required), lat_entrada: location.lat, lng_entrada: location.lng, precision_entrada_m: location.precision_m, estado, user_agent: userAgent }, include: includeRegistro });
+      await this.audit(user.id, 'MARCAR_ENTRADA_ADMINISTRATIVA', registro.id, ip, { horario_administrativo_id: horario.id, estado }, tx);
+      return registro;
+    });
   }
 
   async marcarSalida(user: AuthScope, location: AdministrativeLocationInput, ip: string) {
     const now = nowInEcuador();
     const windows = await getAttendanceWindows();
-    const open = await this.openRecord(user.id, now);
-    if (!open) throw new AppError('No tiene una asistencia administrativa abierta.', 404);
-    if (now < subtractMinutes(onDate(now, open.horario_administrativo.hora_fin), windows.exitBeforeMinutes)) throw new AppError(`La salida se habilita ${windows.exitBeforeMinutes} minutos antes de finalizar la hora administrativa.`, 400);
-    if (now > addMinutes(onDate(now, open.horario_administrativo.hora_fin), windows.exitAfterMinutes)) throw new AppError('El tiempo para marcar salida terminó.', 400);
-    const registro = await prisma.registroAdministrativo.update({ where: { id: open.id }, data: { timestamp_salida: now, ip_salida: ip, foto_salida_url: await savePhoto(location.foto_base64, user.id, 'salida', await photoRequired()), lat_salida: location.lat, lng_salida: location.lng, precision_salida_m: location.precision_m }, include: includeRegistro });
-    await this.audit(user.id, 'MARCAR_SALIDA_ADMINISTRATIVA', registro.id, ip, { horario_administrativo_id: registro.horario_administrativo_id });
-    return registro;
+    const required = await photoRequired();
+    return withDocenteLock(user.id, async (tx) => {
+      const open = await this.openRecord(user.id, now, tx);
+      if (!open) throw new AppError('No tiene una asistencia administrativa abierta.', 404);
+      if (now < subtractMinutes(onDate(now, open.horario_administrativo.hora_fin), windows.exitBeforeMinutes)) throw new AppError(`La salida se habilita ${windows.exitBeforeMinutes} minutos antes de finalizar la hora administrativa.`, 400);
+      if (now > addMinutes(onDate(now, open.horario_administrativo.hora_fin), windows.exitAfterMinutes)) throw new AppError('El tiempo para marcar salida terminó.', 400);
+      const registro = await tx.registroAdministrativo.update({ where: { id: open.id }, data: { timestamp_salida: now, ip_salida: ip, foto_salida_url: await savePhoto(location.foto_base64, user.id, 'salida', required), lat_salida: location.lat, lng_salida: location.lng, precision_salida_m: location.precision_m }, include: includeRegistro });
+      await this.audit(user.id, 'MARCAR_SALIDA_ADMINISTRATIVA', registro.id, ip, { horario_administrativo_id: registro.horario_administrativo_id }, tx);
+      return registro;
+    });
   }
 
-  private async activeSchedule(docenteId: string, now: Date, windows: AttendanceWindowSettings) {
-    const schedules = await prisma.horarioAdministrativo.findMany({ where: { docente_id: docenteId, dia_semana: dayOfWeek(now), activo: true, fecha_inicio: { lte: now }, fecha_fin: { gte: now } }, include: includeHorario, orderBy: { hora_inicio: 'asc' } });
+  private async activeSchedule(docenteId: string, now: Date, windows: AttendanceWindowSettings, db: DbClient = prisma) {
+    const schedules = await db.horarioAdministrativo.findMany({ where: { docente_id: docenteId, dia_semana: dayOfWeek(now), activo: true, fecha_inicio: { lte: now }, fecha_fin: { gte: now } }, include: includeHorario, orderBy: { hora_inicio: 'asc' } });
     return schedules.find((item) => now <= onDate(now, item.hora_fin) && calcularEstadoAsistencia(now, item.hora_inicio, now, windows.entryBeforeMinutes, windows.entryAfterMinutes) !== 'fuera_de_ventana') ?? null;
   }
-  private openRecord(docenteId: string, now: Date) { return prisma.registroAdministrativo.findFirst({ where: { docente_id: docenteId, timestamp_salida: null, timestamp_entrada: { gte: startOfDay(now), lte: endOfDay(now) } }, include: includeRegistro, orderBy: { timestamp_entrada: 'desc' } }); }
+  private openRecord(docenteId: string, now: Date, db: DbClient = prisma) { return db.registroAdministrativo.findFirst({ where: { docente_id: docenteId, timestamp_salida: null, timestamp_entrada: { gte: startOfDay(now), lte: endOfDay(now) } }, include: includeRegistro, orderBy: { timestamp_entrada: 'desc' } }); }
   private async assertDocente(id: string) { const docente = await prisma.user.findUnique({ where: { id }, select: { rol: true, activo: true } }); if (!docente || !docente.activo || docente.rol !== Rol.docente) throw new AppError('Docente no encontrado o inactivo.', 404); }
   private async assertPeriodo(id: string) { const periodo = await prisma.periodoAcademico.findUnique({ where: { id } }); if (!periodo || !periodo.activo) throw new AppError('Período académico no encontrado o inactivo.', 404); return periodo; }
   private async assertNoOverlap(data: Pick<HorarioAdministrativoInput, 'docente_id' | 'periodo_academico_id' | 'dia_semana' | 'hora_inicio' | 'hora_fin' | 'activo'>, excludeId?: string) {
@@ -155,6 +162,6 @@ export class HorasAdministrativasService {
     ]);
     if ([...administrativos, ...academicos].some((item) => overlaps(data.hora_inicio, data.hora_fin, item.hora_inicio, item.hora_fin))) throw new AppError('Este bloque se cruza con una clase u hora administrativa activa del docente.', 409);
   }
-  private audit(userId: string, action: string, recordId: string, ip: string, payload: unknown) { return prisma.auditLog.create({ data: { user_id: userId, accion: action, tabla_afectada: 'horarios_administrativos', registro_id: recordId, ip, datos_nuevos: payload as Prisma.InputJsonValue } }); }
+  private audit(userId: string, action: string, recordId: string, ip: string, payload: unknown, db: DbClient = prisma) { return db.auditLog.create({ data: { user_id: userId, accion: action, tabla_afectada: 'horarios_administrativos', registro_id: recordId, ip, datos_nuevos: payload as Prisma.InputJsonValue } }); }
 }
 export const horasAdministrativasService = new HorasAdministrativasService();

@@ -5,6 +5,7 @@ import { prisma } from '../../config/database';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { calcularEstadoAsistencia, nowInEcuador } from '../../shared/utils/timezone';
 import { getAttendanceWindows, type AttendanceWindowSettings } from '../../shared/utils/attendanceSettings';
+import { withDocenteLock, type DbClient } from '../../shared/utils/attendanceLock';
 import type { JustificarAsistenciaInput, ListAsistenciasQueryInput, LocationInput } from './asistencias.schemas';
 
 interface AuthScope {
@@ -257,67 +258,70 @@ export class AsistenciasService {
 
     const now = nowInEcuador();
     const windows = await getAttendanceWindows();
-    const open = await this.findRegistroAbierto(user.id);
-    const openIsActionable =
-      open && now <= addMinutes(timeOnDate(open.timestamp_entrada!, open.horario.hora_fin), windows.exitAfterMinutes);
-    if (openIsActionable) {
-      throw new AppError('Ya existe una asistencia abierta. Marque salida antes de registrar otro ingreso.', 409);
-    }
-    const administrativeOpen = await prisma.registroAdministrativo.findFirst({
-      where: {
-        docente_id: user.id,
-        timestamp_salida: null,
-        timestamp_entrada: { gte: startOfDay(now), lte: endOfDay(now) },
-      },
-      select: { id: true },
-    });
-    if (administrativeOpen) {
-      throw new AppError('Debe marcar salida de la hora administrativa antes de iniciar una clase.', 409);
-    }
-
-    const horario = await this.findHorarioActivo(user.id, now, windows);
-    if (!horario) {
-      throw new AppError('No hay una clase activa dentro de la ventana de marcado.', 404);
-    }
-
-    const alreadyMarked = await this.findRegistroDelHorarioHoyIncluyendoJustificacion(user.id, horario.id, now);
-    if (alreadyMarked) {
-      throw new AppError('La asistencia de esta clase ya fue registrada. No puede marcar ingreso nuevamente.', 409);
-    }
-
-    const estadoCalculado = calcularEstadoAsistencia(now, horario.hora_inicio, now, windows.entryBeforeMinutes, windows.entryAfterMinutes);
-    if (estadoCalculado === 'fuera_de_ventana') {
-      throw new AppError('La clase no esta dentro de la ventana permitida de marcado.', 400);
-    }
-
     const photoRequired = await isAttendancePhotoRequired();
-    const registro = await prisma.registroAsistencia.create({
-      data: {
-        docente_id: user.id,
+
+    return withDocenteLock(user.id, async (tx) => {
+      const open = await this.findRegistroAbierto(user.id, tx);
+      const openIsActionable =
+        open && now <= addMinutes(timeOnDate(open.timestamp_entrada!, open.horario.hora_fin), windows.exitAfterMinutes);
+      if (openIsActionable) {
+        throw new AppError('Ya existe una asistencia abierta. Marque salida antes de registrar otro ingreso.', 409);
+      }
+      const administrativeOpen = await tx.registroAdministrativo.findFirst({
+        where: {
+          docente_id: user.id,
+          timestamp_salida: null,
+          timestamp_entrada: { gte: startOfDay(now), lte: endOfDay(now) },
+        },
+        select: { id: true },
+      });
+      if (administrativeOpen) {
+        throw new AppError('Debe marcar salida de la hora administrativa antes de iniciar una clase.', 409);
+      }
+
+      const horario = await this.findHorarioActivo(user.id, now, windows, tx);
+      if (!horario) {
+        throw new AppError('No hay una clase activa dentro de la ventana de marcado.', 404);
+      }
+
+      const alreadyMarked = await this.findRegistroDelHorarioHoyIncluyendoJustificacion(user.id, horario.id, now, tx);
+      if (alreadyMarked) {
+        throw new AppError('La asistencia de esta clase ya fue registrada. No puede marcar ingreso nuevamente.', 409);
+      }
+
+      const estadoCalculado = calcularEstadoAsistencia(now, horario.hora_inicio, now, windows.entryBeforeMinutes, windows.entryAfterMinutes);
+      if (estadoCalculado === 'fuera_de_ventana') {
+        throw new AppError('La clase no esta dentro de la ventana permitida de marcado.', 400);
+      }
+
+      const registro = await tx.registroAsistencia.create({
+        data: {
+          docente_id: user.id,
+          horario_id: horario.id,
+          timestamp_entrada: now,
+          ip_entrada: ip,
+          foto_entrada_url: await saveAttendancePhoto(location.foto_base64, user.id, 'entrada', photoRequired),
+          lat_entrada: location.lat,
+          lng_entrada: location.lng,
+          precision_entrada_m: location.precision_m,
+          // Campos heredados para que los registros previos sigan siendo compatibles.
+          lat: location.lat,
+          lng: location.lng,
+          precision_m: location.precision_m,
+          estado: estadoCalculado,
+          user_agent: userAgent,
+        },
+        include: asistenciaInclude,
+      });
+
+      await this.audit(user.id, 'MARCAR_ENTRADA', registro.id, ip, {
         horario_id: horario.id,
-        timestamp_entrada: now,
-        ip_entrada: ip,
-        foto_entrada_url: await saveAttendancePhoto(location.foto_base64, user.id, 'entrada', photoRequired),
-        lat_entrada: location.lat,
-        lng_entrada: location.lng,
-        precision_entrada_m: location.precision_m,
-        // Campos heredados para que los registros previos sigan siendo compatibles.
-        lat: location.lat,
-        lng: location.lng,
-        precision_m: location.precision_m,
         estado: estadoCalculado,
-        user_agent: userAgent,
-      },
-      include: asistenciaInclude,
-    });
+        foto_entrada_url: registro.foto_entrada_url,
+      }, tx);
 
-    await this.audit(user.id, 'MARCAR_ENTRADA', registro.id, ip, {
-      horario_id: horario.id,
-      estado: estadoCalculado,
-      foto_entrada_url: registro.foto_entrada_url,
+      return registro;
     });
-
-    return registro;
   }
 
   async marcarSalida(user: AuthScope, location: LocationInput, ip: string) {
@@ -325,42 +329,48 @@ export class AsistenciasService {
       throw new AppError('Solo los docentes pueden marcar salida.', 403);
     }
 
-    const open = await this.findRegistroAbierto(user.id);
-    if (!open) {
-      throw new AppError('No tiene una asistencia abierta para marcar salida.', 404);
-    }
-
     const now = nowInEcuador();
     const windows = await getAttendanceWindows();
-    const salidaDisponibleDesde = subtractMinutes(timeOnDate(now, open.horario.hora_fin), windows.exitBeforeMinutes);
-    if (now < salidaDisponibleDesde) {
-      throw new AppError(`La salida se habilita ${windows.exitBeforeMinutes} minutos antes de la hora de fin de la clase.`, 400);
-    }
-    const salidaDisponibleHasta = addMinutes(timeOnDate(now, open.horario.hora_fin), windows.exitAfterMinutes);
-    if (now > salidaDisponibleHasta) {
-      throw new AppError('El tiempo para marcar salida terminó. Solicite una justificación.', 400);
-    }
-
     const photoRequired = await isAttendancePhotoRequired();
-    const registro = await prisma.registroAsistencia.update({
-      data: {
-        timestamp_salida: now,
-        ip_salida: ip,
-        foto_salida_url: await saveAttendancePhoto(location.foto_base64, user.id, 'salida', photoRequired),
-        lat: location.lat ?? open.lat,
-        lng: location.lng ?? open.lng,
-        precision_m: location.precision_m ?? open.precision_m,
-      },
-      include: asistenciaInclude,
-      where: { id: open.id },
-    });
 
-    await this.audit(user.id, 'MARCAR_SALIDA', registro.id, ip, {
-      horario_id: registro.horario_id,
-      foto_salida_url: registro.foto_salida_url,
-    });
+    return withDocenteLock(user.id, async (tx) => {
+      const open = await this.findRegistroAbierto(user.id, tx);
+      if (!open) {
+        throw new AppError('No tiene una asistencia abierta para marcar salida.', 404);
+      }
 
-    return registro;
+      const salidaDisponibleDesde = subtractMinutes(timeOnDate(now, open.horario.hora_fin), windows.exitBeforeMinutes);
+      if (now < salidaDisponibleDesde) {
+        throw new AppError(`La salida se habilita ${windows.exitBeforeMinutes} minutos antes de la hora de fin de la clase.`, 400);
+      }
+      const salidaDisponibleHasta = addMinutes(timeOnDate(now, open.horario.hora_fin), windows.exitAfterMinutes);
+      if (now > salidaDisponibleHasta) {
+        throw new AppError('El tiempo para marcar salida terminó. Solicite una justificación.', 400);
+      }
+
+      const registro = await tx.registroAsistencia.update({
+        data: {
+          timestamp_salida: now,
+          ip_salida: ip,
+          foto_salida_url: await saveAttendancePhoto(location.foto_base64, user.id, 'salida', photoRequired),
+          lat_salida: location.lat,
+          lng_salida: location.lng,
+          precision_salida_m: location.precision_m,
+          lat: location.lat ?? open.lat,
+          lng: location.lng ?? open.lng,
+          precision_m: location.precision_m ?? open.precision_m,
+        },
+        include: asistenciaInclude,
+        where: { id: open.id },
+      });
+
+      await this.audit(user.id, 'MARCAR_SALIDA', registro.id, ip, {
+        horario_id: registro.horario_id,
+        foto_salida_url: registro.foto_salida_url,
+      }, tx);
+
+      return registro;
+    });
   }
 
   async list(filters: ListAsistenciasQueryInput, user: AuthScope) {
@@ -545,10 +555,10 @@ export class AsistenciasService {
     return registro;
   }
 
-  private async findHorarioActivo(docenteId: string, now: Date, windows: AttendanceWindowSettings) {
+  private async findHorarioActivo(docenteId: string, now: Date, windows: AttendanceWindowSettings, db: DbClient = prisma) {
     const diaSemana = getDiaSemana(now);
 
-    const candidates = await prisma.horario.findMany({
+    const candidates = await db.horario.findMany({
       where: {
         dia_semana: diaSemana,
         activo: true,
@@ -574,10 +584,10 @@ export class AsistenciasService {
     return candidates.find((horario) => horarioPermiteIngreso(now, horario.hora_inicio, horario.hora_fin, windows)) ?? null;
   }
 
-  private async findRegistroAbierto(docenteId: string) {
+  private async findRegistroAbierto(docenteId: string, db: DbClient = prisma) {
     const today = nowInEcuador();
 
-    return prisma.registroAsistencia.findFirst({
+    return db.registroAsistencia.findFirst({
       where: {
         docente_id: docenteId,
         timestamp_salida: null,
@@ -591,8 +601,8 @@ export class AsistenciasService {
     });
   }
 
-  private async findRegistroDelHorarioHoyIncluyendoJustificacion(docenteId: string, horarioId: string, date: Date) {
-    return prisma.registroAsistencia.findFirst({
+  private async findRegistroDelHorarioHoyIncluyendoJustificacion(docenteId: string, horarioId: string, date: Date, db: DbClient = prisma) {
+    return db.registroAsistencia.findFirst({
       where: {
         docente_id: docenteId,
         horario_id: horarioId,
@@ -617,8 +627,8 @@ export class AsistenciasService {
     });
   }
 
-  private async audit(userId: string, accion: string, registroId: string, ip: string, payload: unknown): Promise<void> {
-    await prisma.auditLog.create({
+  private async audit(userId: string, accion: string, registroId: string, ip: string, payload: unknown, db: DbClient = prisma): Promise<void> {
+    await db.auditLog.create({
       data: {
         user_id: userId,
         accion,

@@ -3,8 +3,10 @@ import { DiaSemana, EstadoAsistencia, Modalidad } from '@prisma/client';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { AsistenciasService } from './asistencias.service';
 
-vi.mock('../../config/database', () => ({
-  prisma: {
+vi.mock('../../config/database', () => {
+  const prisma = {
+    $transaction: vi.fn(),
+    $queryRaw: vi.fn(),
     horario: {
       findMany: vi.fn(),
     },
@@ -23,8 +25,11 @@ vi.mock('../../config/database', () => ({
     auditLog: {
       create: vi.fn(),
     },
-  },
-}));
+  };
+  // La transacción con bloqueo por docente se ejecuta sobre el mismo cliente simulado.
+  prisma.$transaction.mockImplementation((fn: (tx: typeof prisma) => unknown) => fn(prisma));
+  return { prisma };
+});
 
 vi.mock('node:fs/promises', () => ({
   default: {
@@ -234,6 +239,42 @@ describe('AsistenciasService', () => {
     vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
 
     await expect(service.marcarSalida(user, { foto_base64: cameraPhoto }, '127.0.0.1')).resolves.toEqual(updatedRegistro);
+  });
+
+  it('guarda el GPS de salida en sus propios campos y dentro del bloqueo por docente', async () => {
+    const closeToEndRegistro = {
+      ...openRegistro,
+      horario: {
+        ...openRegistro.horario,
+        hora_fin: '10:40',
+      },
+    };
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(closeToEndRegistro as never);
+    vi.mocked(prisma.registroAsistencia.update).mockResolvedValue(closeToEndRegistro as never);
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+
+    await service.marcarSalida(user, { lat: -3.99, lng: -79.2, precision_m: 12, foto_base64: cameraPhoto }, '127.0.0.1');
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.registroAsistencia.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ lat_salida: -3.99, lng_salida: -79.2, precision_salida_m: 12 }),
+      })
+    );
+  });
+
+  it('marca la entrada dentro del bloqueo por docente', async () => {
+    vi.mocked(prisma.horario.findMany).mockResolvedValue([activeHorario] as never);
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(null as never);
+    vi.mocked(prisma.registroAsistencia.create).mockResolvedValue({ id: 'nuevo', foto_entrada_url: null } as never);
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+
+    await service.marcarEntrada(user, { foto_base64: cameraPhoto }, '127.0.0.1');
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.registroAsistencia.create).toHaveBeenCalledTimes(1);
   });
 
   it('rechaza solicitar justificación cuando la marcación ya tiene salida', async () => {
