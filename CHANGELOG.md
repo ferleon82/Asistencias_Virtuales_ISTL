@@ -6,6 +6,18 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Seguridad de sesion y fotos (fase 4 del refactor)
+
+- En cada peticion se confirma que el usuario siga activo y se usa su rol
+  vigente (cache de 30 s). Un usuario desactivado pierde el acceso de
+  inmediato en lugar de conservarlo hasta que vence su token (8 h).
+- Las fotos de asistencia ya no son publicas en `/uploads`: se entregan con
+  enlaces firmados que vencen en `/api/v1/fotos/:archivo` (2 h en pantalla,
+  7 dias en el Excel).
+- Almacenamiento de fotos configurable con `PHOTO_STORAGE`: `local` en
+  desarrollo y bucket privado de Supabase Storage en produccion. Ver README.
+- Sin migraciones: las referencias guardadas en la base no cambian.
+
 ### Reportes por modulos (fase 3 del refactor)
 
 - `reportes.service.ts` se dividio en consultas y rango de fechas
