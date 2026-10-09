@@ -78,7 +78,10 @@ export default function Dashboard() {
   const canViewSystemStatus = hasModule('system_status');
   const canManageAdministrativeHours = user?.rol === 'talento_humano' && hasModule('administrative_hours');
   const canConfigureModules = user?.rol === 'tics' && hasModule('module_permissions');
-  const canLoadReferenceData = canViewInstitutionalAnalytics || canManageAcademic || canManageSchedules || canViewReports;
+  // Los docentes ven Reportes pero no pueden leer carreras, materias ni docentes:
+  // para ellos solo se cargan los períodos académicos.
+  const canLoadReferenceData =
+    user?.rol !== 'docente' && (canViewInstitutionalAnalytics || canManageAcademic || canManageSchedules || canViewReports);
   const [cameraAction, setCameraAction] = useState<{ action: 'entrada' | 'salida'; scope: 'academic' | 'administrative' } | null>(null);
   const [activeModuleTab, setActiveModuleTab] = useState('');
   const { carreras, materias, docentes, periodosAcademicos, horarios, loadError, loadAdminData } = useAdminData({
