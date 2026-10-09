@@ -6,6 +6,28 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Logica comun de marcacion (fase 2 del refactor)
+
+- Clases y jornada administrativa comparten `backend/src/shared/attendance/`:
+  reloj de Ecuador, ventanas de marcado, foto, auditoria, bloqueo por docente
+  y deteccion de marcaciones abiertas.
+- Los calculos de hora ya no dependen de la zona horaria del servidor. Las
+  pruebas pueden ejecutarse con `TEST_TZ=UTC pnpm test` para comprobarlo.
+- Una marcacion sin salida solo bloquea nuevas entradas mientras su ventana de
+  salida sigue abierta, tanto en clases como en jornada administrativa. Antes,
+  una salida olvidada de una hora administrativa bloqueaba las clases del resto
+  del dia (y viceversa).
+- Se puede marcar el ultimo dia de un periodo academico; antes quedaba fuera
+  por comparar la fecha del periodo con la hora actual en UTC.
+- El domingo, el estado actual responde "sin clase activa" en lugar de un
+  error 404.
+- La justificacion de una clase sin marcacion valida que el horario sea del dia
+  de la semana actual.
+- Los plazos de justificacion usan las ventanas configuradas en lugar de 15
+  minutos fijos (el valor por defecto sigue siendo 15).
+- La configuracion de asistencia se lee en una sola consulta.
+- Sin migraciones de base de datos ni cambios en las respuestas de la API.
+
 ### Correcciones criticas (fase 1 del refactor)
 
 - La API confia en los saltos de proxy configurados en `TRUST_PROXY`
