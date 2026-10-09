@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
-const envSchema = z.object({
+/**
+ * Variable opcional que trata la cadena vacía como ausente. docker-compose
+ * pasa `${VAR:-}` como "" cuando la variable no está definida en .env.
+ */
+function optional<T extends z.ZodTypeAny>(schema: T) {
+  return z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+}
+
+export const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   TZ: z.string().default('America/Guayaquil'),
@@ -25,8 +33,8 @@ const envSchema = z.object({
 
   // Fotos de asistencia: disco local (desarrollo) o bucket privado de Supabase (producción).
   PHOTO_STORAGE: z.enum(['local', 'supabase']).default('local'),
-  SUPABASE_URL: z.string().url().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  SUPABASE_URL: optional(z.string().url()),
+  SUPABASE_SERVICE_ROLE_KEY: optional(z.string().min(1)),
   SUPABASE_PHOTO_BUCKET: z.string().min(1).default('asistencias-fotos'),
 
   API_RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000),
