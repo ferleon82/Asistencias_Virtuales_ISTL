@@ -226,16 +226,11 @@ export class HorariosService {
 
     // Un horario antiguo sin asignación docente se "adopta": pasa a la jornada
     // conservando su id (y sus asistencias) en lugar de duplicarse.
-    const adoptadosIds = data.bloques.flatMap((bloque) => (bloque.id ? [bloque.id] : []));
-    if (adoptadosIds.length) {
-      const adoptables = await prisma.horario.findMany({
-        where: { id: { in: adoptadosIds }, activo: true, asignacion_docente_id: null, AND: [buildRoleWhere(user)] },
-        select: { id: true },
-      });
-      if (adoptables.length !== adoptadosIds.length) {
-        throw new AppError('Una jornada nueva solo puede incluir horarios antiguos sin jornada asignada.', 400);
-      }
-    }
+    const adoptadosIds = await this.assertAdoptables(
+      data.bloques.flatMap((bloque) => (bloque.id ? [bloque.id] : [])),
+      user,
+      'Una jornada nueva solo puede incluir horarios antiguos sin jornada asignada.'
+    );
 
     return this.saveJornada(data, adoptadosIds, user, ip, 'CREATE_JORNADA');
   }
@@ -249,12 +244,12 @@ export class HorariosService {
     const actuales = await this.getJornadaHorarios(asignacionId, user);
     await this.assertJornadaManageable(data, user);
 
+    // Además de sus propios bloques, una jornada puede incorporar horarios antiguos sin asignación.
     const actualesIds = new Set(actuales.map((horario) => horario.id));
-    if (data.bloques.some((bloque) => bloque.id && !actualesIds.has(bloque.id))) {
-      throw new AppError('Uno de los bloques no pertenece a esta jornada.', 400);
-    }
+    const externosIds = data.bloques.flatMap((bloque) => (bloque.id && !actualesIds.has(bloque.id) ? [bloque.id] : []));
+    const adoptadosIds = await this.assertAdoptables(externosIds, user, 'Uno de los bloques no pertenece a esta jornada.');
 
-    return this.saveJornada(data, actuales.map((horario) => horario.id), user, ip, 'UPDATE_JORNADA', asignacionId);
+    return this.saveJornada(data, [...actualesIds, ...adoptadosIds], user, ip, 'UPDATE_JORNADA', asignacionId);
   }
 
   /** Desactiva todos los bloques de una jornada. */
@@ -268,6 +263,19 @@ export class HorariosService {
     await this.audit(user.id, 'DEACTIVATE_JORNADA', asignacionId, ip, actuales, { activo: false });
 
     return { asignacion_docente_id: asignacionId, horarios_desactivados: actuales.length };
+  }
+
+  /** Verifica que los ids sean horarios antiguos, activos, sin asignación y gestionables por el usuario. */
+  private async assertAdoptables(ids: string[], user: AuthScope, mensaje: string): Promise<string[]> {
+    if (!ids.length) return [];
+    const adoptables = await prisma.horario.findMany({
+      where: { id: { in: ids }, activo: true, asignacion_docente_id: null, AND: [buildRoleWhere(user)] },
+      select: { id: true },
+    });
+    if (adoptables.length !== ids.length) {
+      throw new AppError(mensaje, 400);
+    }
+    return ids;
   }
 
   private asignacionKey(data: Pick<JornadaInput, 'materia_id' | 'docente_id' | 'periodo_academico_id' | 'jornada' | 'paralelo'>) {

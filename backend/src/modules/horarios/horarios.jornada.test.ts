@@ -255,9 +255,33 @@ describe('HorariosService - jornada semanal', () => {
     expect(prisma.asignacionDocente.update).toHaveBeenCalledWith({ where: { id: ids.asignacion }, data: { activa: false } });
   });
 
+  it('al editar una jornada puede incorporar un horario antiguo sin asignación', async () => {
+    vi.mocked(prisma.asignacionDocente.findUnique).mockResolvedValue({ materia_id: ids.materia } as never);
+    vi.mocked(prisma.horario.findMany)
+      .mockResolvedValueOnce([{ id: ids.lunes }] as never) // bloques de la jornada
+      .mockResolvedValueOnce([{ id: ids.martes }] as never) // horario antiguo adoptable
+      .mockResolvedValue([] as never);
+
+    await service.updateJornada(
+      ids.asignacion,
+      jornada([
+        { id: ids.lunes, dia_semana: DiaSemana.lunes, hora_inicio: '08:00', hora_fin: '10:00' },
+        { id: ids.martes, dia_semana: DiaSemana.martes, hora_inicio: '08:50', hora_fin: '10:25' },
+      ]),
+      tics,
+      '127.0.0.1'
+    );
+
+    expect(prisma.horario.update).toHaveBeenCalledWith({
+      where: { id: ids.martes },
+      data: expect.objectContaining({ asignacion_docente_id: ids.asignacion }),
+    });
+    expect(prisma.horario.updateMany).not.toHaveBeenCalled();
+  });
+
   it('rechaza bloques que pertenecen a otra jornada', async () => {
     vi.mocked(prisma.asignacionDocente.findUnique).mockResolvedValue({ materia_id: ids.materia } as never);
-    vi.mocked(prisma.horario.findMany).mockResolvedValueOnce([{ id: ids.lunes }] as never);
+    vi.mocked(prisma.horario.findMany).mockResolvedValueOnce([{ id: ids.lunes }] as never).mockResolvedValueOnce([] as never);
 
     await expect(
       service.updateJornada(
