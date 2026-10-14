@@ -6,6 +6,20 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Jornada semanal por materia
+
+- En Horarios, una materia que se dicta varios días (por ejemplo, lunes 2 h,
+  martes 1 h y viernes 2 h) se registra en un solo formulario: datos comunes
+  una vez y una lista de bloques dia/hora. Se guarda completa o no se guarda.
+- Se permiten varios bloques el mismo dia si no se cruzan. Los cruces con
+  otras clases u horas administrativas del docente indican el bloque y la
+  materia en conflicto.
+- La lista agrupa los horarios por jornada; "Editar jornada" permite cambiar
+  bloques, docente u otros datos comunes de todos los bloques a la vez. Los
+  bloques quitados se desactivan, nunca se borran.
+- Nuevos endpoints `POST/PUT/DELETE /api/v1/horarios/jornadas`. Los endpoints
+  de horario individual siguen disponibles. Sin migraciones.
+
 ### Horas administrativas en el dashboard
 
 - El dashboard institucional tiene un selector Clases / Horas administrativas.

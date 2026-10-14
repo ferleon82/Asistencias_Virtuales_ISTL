@@ -4,6 +4,9 @@ import { authenticate } from '../../shared/utils/jwt';
 import { roleGuard } from '../../shared/middleware/roleGuard';
 import {
   createHorario,
+  createJornada,
+  deactivateJornada,
+  updateJornada,
   deactivateHorario,
   getHorario,
   listHorarios,
@@ -18,6 +21,11 @@ const canManageHorarios = roleGuard(Rol.coordinador, Rol.tics, Rol.rectorado, Ro
 router.use(authenticate);
 
 router.get('/', canReadHorarios, listHorarios);
+// Jornada semanal: todos los bloques de una materia y docente a la vez.
+// Antes de '/:id' para que 'jornadas' no se interprete como id.
+router.post('/jornadas', canManageHorarios, createJornada);
+router.put('/jornadas/:asignacionId', canManageHorarios, updateJornada);
+router.delete('/jornadas/:asignacionId', canManageHorarios, deactivateJornada);
 router.get('/:id', canReadHorarios, getHorario);
 router.post('/', canManageHorarios, createHorario);
 router.put('/:id', canManageHorarios, updateHorario);

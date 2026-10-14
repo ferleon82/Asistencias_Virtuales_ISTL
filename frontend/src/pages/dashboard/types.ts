@@ -167,7 +167,9 @@ export interface HorarioItem {
     email?: string;
   } | null;
   jornada: string;
+  asignacion_docente_id?: string | null;
   asignacion_docente?: {
+    id?: string;
     paralelo: string;
   } | null;
   modalidad: string;
@@ -192,20 +194,25 @@ export interface HorarioItem {
   };
 }
 
-export interface HorarioForm {
-  materia_id: string;
-  docente_id: string;
-  periodo_academico_id: string;
+/** Un bloque semanal de la jornada: día y horas. `id` existe al editar. */
+export interface JornadaBloqueForm {
+  key: string;
+  id?: string;
   dia_semana: string;
   hora_inicio: string;
   hora_fin: string;
-  ciclo: string;
+}
+
+/** Jornada semanal de una materia: datos comunes una vez y sus bloques. */
+export interface JornadaForm {
+  materia_id: string;
+  docente_id: string;
+  periodo_academico_id: string;
   jornada: string;
   paralelo: string;
   modalidad: string;
-  fecha_inicio_ciclo: string;
-  fecha_fin_ciclo: string;
   url_aula_virtual: string;
+  bloques: JornadaBloqueForm[];
 }
 export interface UsuarioItem {
   id: string;
