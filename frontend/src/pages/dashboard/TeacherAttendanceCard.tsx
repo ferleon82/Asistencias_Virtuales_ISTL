@@ -34,7 +34,11 @@ export function TeacherAttendanceCard({
             </p>
           </div>
         ) : (
-          <p className="mt-1 text-sm text-slate-200">Sin clase dentro de la ventana de marcado.</p>
+          <p className="mt-1 text-sm text-slate-200">
+            {estadoAsistencia?.diaNoLaborable
+              ? `Hoy es feriado (${estadoAsistencia.diaNoLaborable.descripcion}): no hay marcación.`
+              : 'Sin clase dentro de la ventana de marcado.'}
+          </p>
         )}
         {estadoAsistencia?.registroAbierto && (
           <div className="mt-2 space-y-1 text-xs text-teal-100">
