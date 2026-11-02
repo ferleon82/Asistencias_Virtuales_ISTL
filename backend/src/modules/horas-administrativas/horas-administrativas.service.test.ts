@@ -10,6 +10,7 @@ vi.mock('../../config/database', () => {
     registroAdministrativo: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
     registroAsistencia: { findMany: vi.fn() },
     systemSetting: { findMany: vi.fn() },
+    diaNoLaborable: { findUnique: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]) },
     auditLog: { create: vi.fn() },
   };
   prisma.$transaction.mockImplementation((fn: (tx: typeof prisma) => unknown) => fn(prisma));
@@ -98,6 +99,22 @@ describe('HorasAdministrativasService', () => {
 
     await expect(service.marcarEntrada(user, {}, '127.0.0.1')).resolves.toBeDefined();
     expect(prisma.registroAdministrativo.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('en un feriado no permite marcar la hora administrativa', async () => {
+    vi.mocked(prisma.diaNoLaborable.findUnique).mockResolvedValue({
+      fecha: new Date('2026-10-05T00:00:00Z'),
+      descripcion: 'Feriado de prueba',
+    } as never);
+
+    const estado = await service.estadoActual(user);
+    expect(estado.horarioActivo).toBeNull();
+    expect(estado.puedeMarcarEntrada).toBe(false);
+    expect(estado.diaNoLaborable?.descripcion).toBe('Feriado de prueba');
+
+    await expect(service.marcarEntrada(user, {}, '127.0.0.1')).rejects.toMatchObject({ statusCode: 409 });
+    expect(prisma.registroAdministrativo.create).not.toHaveBeenCalled();
+    vi.mocked(prisma.diaNoLaborable.findUnique).mockResolvedValue(null);
   });
 
   it('el domingo responde sin bloque activo en lugar de un error', async () => {

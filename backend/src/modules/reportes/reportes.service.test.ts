@@ -6,6 +6,7 @@ vi.mock('../../config/database', () => ({
     periodoAcademico: { findUnique: vi.fn() },
     registroAdministrativo: { findMany: vi.fn() },
     horarioAdministrativo: { findMany: vi.fn() },
+    diaNoLaborable: { findUnique: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 

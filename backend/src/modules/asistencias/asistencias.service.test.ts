@@ -24,6 +24,7 @@ vi.mock('../../config/database', () => {
     systemSetting: {
       findMany: vi.fn(),
     },
+    diaNoLaborable: { findUnique: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]) },
     auditLog: {
       create: vi.fn(),
     },
@@ -219,6 +220,36 @@ describe('AsistenciasService', () => {
         }),
       })
     );
+  });
+
+  it('en un feriado no ofrece clase activa y lo informa', async () => {
+    vi.mocked(prisma.diaNoLaborable.findUnique).mockResolvedValueOnce({
+      fecha: new Date('2026-05-11T00:00:00Z'),
+      descripcion: 'Día de prueba',
+    } as never);
+    vi.mocked(prisma.horario.findMany).mockResolvedValue([activeHorario] as never);
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(null);
+
+    const estado = await service.getEstadoActual(user);
+
+    expect(estado.horarioActivo).toBeNull();
+    expect(estado.puedeMarcarEntrada).toBe(false);
+    expect(estado.diaNoLaborable).toEqual({ fecha: '2026-05-11', descripcion: 'Día de prueba' });
+  });
+
+  it('en un feriado rechaza marcar entrada sin registrar nada', async () => {
+    vi.mocked(prisma.diaNoLaborable.findUnique).mockResolvedValueOnce({
+      fecha: new Date('2026-05-11T00:00:00Z'),
+      descripcion: 'Día de prueba',
+    } as never);
+    vi.mocked(prisma.horario.findMany).mockResolvedValue([activeHorario] as never);
+    vi.mocked(prisma.registroAsistencia.findFirst).mockResolvedValue(null);
+
+    await expect(service.marcarEntrada(user, { foto_base64: cameraPhoto }, '127.0.0.1')).rejects.toMatchObject({
+      statusCode: 409,
+      message: 'Hoy es feriado (Día de prueba): no hay marcación de asistencia.',
+    });
+    expect(prisma.registroAsistencia.create).not.toHaveBeenCalled();
   });
 
   it('ignora horarios cuya hora fin ya paso al buscar clase activa', async () => {

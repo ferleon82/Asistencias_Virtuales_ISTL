@@ -107,8 +107,9 @@ function sessionStart(dateKey: string, horaInicio: string): Date {
  * Cruza los bloques programados con las marcaciones del rango.
  *
  * Reglas:
- * - Una sesión se programa solo si cae dentro de la vigencia del bloque y ya
- *   comenzó (`now`); las clases que aún no inician no cuentan como ausencias.
+ * - Una sesión se programa solo si cae dentro de la vigencia del bloque, ya
+ *   comenzó (`now`) y no es un día no laborable; las clases que aún no inician
+ *   o que caen en feriado no cuentan como ausencias.
  * - Cada sesión termina en un único estado: presente (tiene entrada),
  *   justificada sin entrada (justificación aprobada) o ausente.
  *   Por eso presentes + justificadas sin entrada + ausentes = programadas.
@@ -121,6 +122,8 @@ export function buildAttendanceSummary(input: {
   now: Date;
   slots: ScheduleSlot[];
   marks: AttendanceMark[];
+  /** Fechas YYYY-MM-DD no laborables (feriados). */
+  noLaborables?: Set<string>;
 }): AttendanceSessionSummary {
   const days = eachDateKey(input.from, input.to);
   const sessions = new Map<string, SessionState>();
@@ -153,6 +156,7 @@ export function buildAttendanceSummary(input: {
     days
       .filter((day) => day.weekday === DAY_NUMBER[slot.dia_semana])
       .filter((day) => day.key >= vigenteDesde && day.key <= vigenteHasta)
+      .filter((day) => !input.noLaborables?.has(day.key))
       .filter((day) => sessionStart(day.key, slot.hora_inicio) <= input.now)
       .forEach((day) => ensureSession(slot.id, day.key, slot.grupo));
   });

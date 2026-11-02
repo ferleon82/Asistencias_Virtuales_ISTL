@@ -413,3 +413,15 @@ model RefreshToken {
   @@index([token])
   @@map("refresh_tokens")
 }
+
+/// Día no laborable institucional (feriado). No se marca asistencia y las
+/// clases o bloques administrativos de ese día no cuentan como programados.
+model DiaNoLaborable {
+  id          String   @id @default(uuid())
+  fecha       DateTime @unique @db.Date
+  descripcion String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("dias_no_laborables")
+}

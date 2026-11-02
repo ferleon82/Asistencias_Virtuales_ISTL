@@ -136,6 +136,20 @@ describe('buildAttendanceSummary', () => {
     expect(summary.porDia[0]).toMatchObject({ presentes: 1, programadas: 1 });
   });
 
+  it('no programa sesiones en días no laborables', () => {
+    const slots = [slot(), slot({ id: 'horario-martes', dia_semana: DiaSemana.martes })];
+    const summary = buildAttendanceSummary({ from, to, now: afterWeek, slots, marks: [], noLaborables: new Set(['2026-10-05']) });
+
+    expect(summary.totals).toMatchObject({ programadas: 1, ausente: 1 });
+    expect(summary.porDia[0]).toMatchObject({ programadas: 0, ausente: 0 });
+  });
+
+  it('conserva una marcación registrada en un día que luego se declaró feriado', () => {
+    const summary = buildAttendanceSummary({ from, to, now: afterWeek, slots: [slot()], marks: [mark()], noLaborables: new Set(['2026-10-05']) });
+
+    expect(summary.totals).toMatchObject({ programadas: 1, presentes: 1, ausente: 0 });
+  });
+
   it('presentes + justificadas sin entrada + ausentes suman las programadas', () => {
     const slots = [slot(), slot({ id: 'horario-martes', dia_semana: DiaSemana.martes }), slot({ id: 'horario-miercoles', dia_semana: DiaSemana.miercoles })];
     const marks = [

@@ -16,6 +16,7 @@ import docsRoutes from './modules/docs/docs.routes';
 import adminRoutes from './modules/admin/admin.routes';
 import horasAdministrativasRoutes from './modules/horas-administrativas/horas-administrativas.routes';
 import fotosRoutes from './modules/fotos/fotos.routes';
+import calendarioRoutes from './modules/calendario/calendario.routes';
 
 // ─── Aplicación Express ────────────────────────────────────────────────────────
 
@@ -99,6 +100,7 @@ export function createApp(): Application {
   app.use('/api/v1/horas-administrativas', horasAdministrativasRoutes);
   app.use('/api/v1/reportes', reportesRoutes);
   app.use('/api/v1/admin', adminRoutes);
+  app.use('/api/v1/calendario', calendarioRoutes);
   // Fotos de asistencia: solo con enlace firmado (ya no se sirve /uploads públicamente).
   app.use('/api/v1/fotos', fotosRoutes);
 
