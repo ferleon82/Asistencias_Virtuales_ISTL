@@ -68,6 +68,7 @@ export function ModulePermissionsSection({
                 {roles.map((role) => {
                   const permission = group.items.find((item) => item.rol === role);
                   const locked = group.moduleKey === 'module_permissions' && role === 'tics';
+                  const noDisponible = permission?.disponible === false;
 
                   return (
                     <td key={`${group.moduleKey}-${role}`} className="py-3 pr-4 text-center">
@@ -75,7 +76,8 @@ export function ModulePermissionsSection({
                         <input
                           type="checkbox"
                           checked={permission.enabled}
-                          disabled={loading || locked}
+                          disabled={loading || locked || noDisponible}
+                          title={noDisponible ? `No disponible para ${rolLabels[role]}` : undefined}
                           onChange={(event) => togglePermission(permission.id, event.target.checked)}
                           className="h-4 w-4 rounded border-slate-300 text-brand-teal focus:ring-brand-teal disabled:cursor-not-allowed"
                           aria-label={`${group.label} ${rolLabels[role]}`}
@@ -96,6 +98,9 @@ export function ModulePermissionsSection({
           </tbody>
         </table>
       </div>
+      <p className="mt-3 text-xs text-slate-500">
+        Las casillas en gris no aplican a ese rol: el módulo no está disponible para él.
+      </p>
 
       <div className="mt-4 flex justify-end">
         <button type="button" onClick={() => void savePermissions()} disabled={loading} className="btn-primary">

@@ -79,7 +79,7 @@ export default function Dashboard() {
   const canManageSchedules = hasModule('schedules');
   const canViewReports = hasModule('reports');
   const canViewSystemStatus = hasModule('system_status');
-  const canManageAdministrativeHours = user?.rol === 'talento_humano' && hasModule('administrative_hours');
+  const canManageAdministrativeHours = (user?.rol === 'talento_humano' || user?.rol === 'tics') && hasModule('administrative_hours');
   const canConfigureModules = user?.rol === 'tics' && hasModule('module_permissions');
   const canManageCalendar = (user?.rol === 'talento_humano' || user?.rol === 'tics') && hasModule('calendar');
   // Los docentes ven Reportes pero no pueden leer carreras, materias ni docentes:
