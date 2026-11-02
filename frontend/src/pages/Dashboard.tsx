@@ -12,6 +12,7 @@ import { useAcademicManagement } from './dashboard/hooks/useAcademicManagement';
 import { useAdminData } from './dashboard/hooks/useAdminData';
 import { useAdministrativeAttendance } from './dashboard/hooks/useAdministrativeAttendance';
 import { useAdministrativeDay } from './dashboard/hooks/useAdministrativeDay';
+import { useDiasNoLaborables } from './dashboard/hooks/useDiasNoLaborables';
 import { useModulePermissions } from './dashboard/hooks/useModulePermissions';
 import { useReports } from './dashboard/hooks/useReports';
 import { useScheduleManagement } from './dashboard/hooks/useScheduleManagement';
@@ -30,6 +31,7 @@ const AdministrativeHoursSection = lazy(() =>
   import('./dashboard/AdministrativeHoursSection').then((m) => ({ default: m.AdministrativeHoursSection }))
 );
 const AnalyticsDashboard = lazy(() => import('./dashboard/AnalyticsDashboard').then((m) => ({ default: m.AnalyticsDashboard })));
+const HolidaysSection = lazy(() => import('./dashboard/HolidaysSection').then((m) => ({ default: m.HolidaysSection })));
 const CameraCaptureModal = lazy(() => import('./dashboard/CameraCaptureModal').then((m) => ({ default: m.CameraCaptureModal })));
 const ModulePermissionsSection = lazy(() =>
   import('./dashboard/ModulePermissionsSection').then((m) => ({ default: m.ModulePermissionsSection }))
@@ -79,6 +81,7 @@ export default function Dashboard() {
   const canViewSystemStatus = hasModule('system_status');
   const canManageAdministrativeHours = user?.rol === 'talento_humano' && hasModule('administrative_hours');
   const canConfigureModules = user?.rol === 'tics' && hasModule('module_permissions');
+  const canManageCalendar = (user?.rol === 'talento_humano' || user?.rol === 'tics') && hasModule('calendar');
   // Los docentes ven Reportes pero no pueden leer carreras, materias ni docentes:
   // para ellos solo se cargan los períodos académicos.
   const canLoadReferenceData =
@@ -130,6 +133,7 @@ export default function Dashboard() {
     loadReportSummary: refreshSummaries,
   });
   const academic = useAcademicManagement({ carreras, loadAdminData, loadReportSummary: refreshSummaries });
+  const holidays = useDiasNoLaborables(canManageCalendar);
   const now = new Date();
   const hora = now.toLocaleTimeString('es-EC', {
     timeZone: 'America/Guayaquil',
@@ -251,6 +255,7 @@ export default function Dashboard() {
     canManageAcademic && { key: 'academic', label: 'Académico' },
     canManageSchedules && { key: 'schedules', label: 'Horarios' },
     canManageAdministrativeHours && { key: 'administrative_hours', label: 'Horas administrativas' },
+    canManageCalendar && { key: 'calendar', label: 'Feriados' },
     canViewReports && { key: 'reports', label: 'Reportes' },
     canViewSystemStatus && { key: 'system_status', label: 'Estado' },
   ].filter(Boolean) as ModuleTab[];
@@ -334,6 +339,8 @@ export default function Dashboard() {
               error={administrativeDayError}
             />
           )}
+
+          {activeModuleTab === 'calendar' && canManageCalendar && <HolidaysSection {...holidays} />}
 
           {activeModuleTab === 'administrative_hours' && canManageAdministrativeHours && (
             <AdministrativeHoursSection docentes={docentes} periodos={periodosAcademicos} />

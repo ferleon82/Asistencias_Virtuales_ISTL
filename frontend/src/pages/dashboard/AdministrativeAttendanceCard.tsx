@@ -31,7 +31,7 @@ export function AdministrativeAttendanceCard({
             <p className="font-semibold">{administrativeState.horarioActivo.descripcion || 'Actividad administrativa'}</p>
             <p className="text-xs text-slate-500">{administrativeState.horarioActivo.hora_inicio} - {administrativeState.horarioActivo.hora_fin}{administrativeState.horarioActivo.ubicacion ? ` · ${administrativeState.horarioActivo.ubicacion}` : ''}</p>
           </div>
-        ) : <p className="mt-1 text-sm text-slate-500">Sin bloque administrativo dentro de la ventana de marcado.</p>}
+        ) : <p className="mt-1 text-sm text-slate-500">{administrativeState?.diaNoLaborable ? `Hoy es feriado (${administrativeState.diaNoLaborable.descripcion}): no hay marcación.` : 'Sin bloque administrativo dentro de la ventana de marcado.'}</p>}
         {administrativeState?.registroAbierto && <p className="mt-2 text-xs text-teal-700">Ingreso abierto desde {new Date(administrativeState.registroAbierto.timestamp_entrada ?? '').toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}</p>}
         {!administrativeCanMarkExit && administrativeState?.salidaDisponibleDesde && <p className="mt-1 text-xs text-slate-500">Salida disponible desde {new Date(administrativeState.salidaDisponibleDesde).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}</p>}
       </div>

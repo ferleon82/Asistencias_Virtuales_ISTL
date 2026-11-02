@@ -55,6 +55,16 @@ const systemModules: Array<{ key: string; label: string; roles: Rol[] }> = [
     roles: [Rol.docente, Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano],
   },
   {
+    key: 'administrative_hours',
+    label: 'Horas administrativas',
+    roles: [Rol.talento_humano],
+  },
+  {
+    key: 'calendar',
+    label: 'Calendario de feriados',
+    roles: [Rol.talento_humano, Rol.tics],
+  },
+  {
     key: 'system_status',
     label: 'Estado del sistema',
     roles: [Rol.tics],

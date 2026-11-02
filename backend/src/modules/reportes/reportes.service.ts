@@ -1,5 +1,6 @@
 import { Rol } from '@prisma/client';
 import { AppError } from '../../shared/middleware/errorHandler';
+import { getFechasNoLaborables } from '../../shared/attendance/calendar';
 import { currentTime } from '../../shared/attendance/clock';
 import { PHOTO_URL_EXPORT_TTL_SECONDS, PHOTO_URL_TTL_SECONDS, withSignedPhotos } from '../../shared/attendance/photoUrls';
 import { renderReportExcel } from './reportes.excel';
@@ -69,7 +70,9 @@ export class ReportesService {
       created_at: registro.created_at,
     }));
 
-    return this.toSummaryData('docente', from, to, buildAttendanceSummary({ from, to, now: currentTime(), slots, marks }), toRows(registros));
+    const noLaborables = await getFechasNoLaborables(from, to);
+    const summary = buildAttendanceSummary({ from, to, now: currentTime(), slots, marks, noLaborables });
+    return this.toSummaryData('docente', from, to, summary, toRows(registros));
   }
 
   private async resumenAdministrativa(filters: ReporteQueryInput, user: AuthScope): Promise<ReportSummaryData> {
@@ -112,7 +115,8 @@ export class ReportesService {
       timestamp_entrada: registro.timestamp_entrada,
       created_at: registro.created_at,
     }));
-    const summary = buildAttendanceSummary({ from, to, now: currentTime(), slots, marks });
+    const noLaborables = await getFechasNoLaborables(from, to);
+    const summary = buildAttendanceSummary({ from, to, now: currentTime(), slots, marks, noLaborables });
 
     return this.toSummaryData('administrativa', from, to, summary, toAdministrativeRows(registros));
   }

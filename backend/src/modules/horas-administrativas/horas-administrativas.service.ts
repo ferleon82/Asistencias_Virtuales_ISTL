@@ -3,6 +3,7 @@ import { prisma } from '../../config/database';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { registrarAuditoria } from '../../shared/attendance/audit';
 import { currentTime, ecuadorDayRange, ecuadorDbDate, ecuadorWeekday } from '../../shared/attendance/clock';
+import { getDiaNoLaborable, mensajeDiaNoLaborable } from '../../shared/attendance/calendar';
 import { withDocenteLock, type DbClient } from '../../shared/attendance/lock';
 import { marcacionAbiertaQueBloquea } from '../../shared/attendance/openRecords';
 import { saveAttendancePhoto } from '../../shared/attendance/photo';
@@ -79,15 +80,19 @@ export class HorasAdministrativasService {
   async estadoActual(user: AuthScope) {
     const now = currentTime();
     const { windows, photoRequired } = await getAttendanceSettings();
-    const [open, horarioActivo, bloqueo] = await Promise.all([
+    const [diaNoLaborable, open, bloqueDelDia, bloqueo] = await Promise.all([
+      getDiaNoLaborable(now),
       this.openRecord(user.id, now, windows),
       this.activeSchedule(user.id, now, windows),
       marcacionAbiertaQueBloquea(user.id, now, windows),
     ]);
+    // En un feriado no hay bloque activo; una marcación abierta previa sí puede cerrarse.
+    const horarioActivo = diaNoLaborable ? null : bloqueDelDia;
     const marcadoHoy = horarioActivo ? await this.recordForScheduleToday(user.id, horarioActivo.id, now) : null;
     const salida = open ? ventanaSalida(open.timestamp_entrada!, open.horario_administrativo.hora_fin, windows) : null;
     return {
       horarioActivo,
+      diaNoLaborable,
       registroAbierto: open,
       puedeMarcarEntrada: !!horarioActivo && !bloqueo && !marcadoHoy,
       puedeMarcarSalida: !!salida && now >= salida.desde && now <= salida.hasta,
@@ -102,6 +107,8 @@ export class HorasAdministrativasService {
     const now = currentTime();
     const { windows, photoRequired } = await getAttendanceSettings();
     return withDocenteLock(user.id, async (tx) => {
+      const diaNoLaborable = await getDiaNoLaborable(now, tx);
+      if (diaNoLaborable) throw new AppError(mensajeDiaNoLaborable(diaNoLaborable), 409);
       const bloqueo = await marcacionAbiertaQueBloquea(user.id, now, windows, tx);
       if (bloqueo === 'administrativa') throw new AppError('Ya existe una asistencia administrativa abierta.', 409);
       if (bloqueo === 'clase') throw new AppError('Debe marcar salida de la clase antes de iniciar una hora administrativa.', 409);

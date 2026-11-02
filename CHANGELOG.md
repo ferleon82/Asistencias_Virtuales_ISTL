@@ -6,6 +6,18 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Calendario de dias no laborables
+
+- Nueva pestana **Feriados** para Talento Humano y TICs: registran un dia o un
+  rango (por ejemplo, carnaval) con su descripcion, y pueden eliminarlos.
+- En un feriado no se puede marcar entrada de clases ni de horas
+  administrativas; las tarjetas del docente lo indican.
+- Los reportes, el dashboard y las tarjetas del dia no cuentan las clases o
+  bloques de un feriado como programados ni como ausencias (tambien si el
+  feriado se registra despues).
+- Migracion `20261102000000_add_dias_no_laborables` (tabla con RLS). Hasta
+  aplicarla, el sistema asume que no hay feriados.
+
 ### Jornada semanal por materia
 
 - En Horarios, una materia que se dicta varios días (por ejemplo, lunes 2 h,

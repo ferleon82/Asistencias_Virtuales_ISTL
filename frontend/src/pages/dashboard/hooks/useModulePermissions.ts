@@ -6,9 +6,9 @@ import { getApiMessage } from '../../../lib/apiError';
 const defaultPermissions: Record<string, string[]> = {
   docente: ['teacher_attendance', 'teacher_day', 'reports'],
   coordinador: ['academic', 'schedules', 'reports'],
-  tics: ['analytics', 'users', 'academic', 'schedules', 'reports', 'system_status', 'module_permissions'],
+  tics: ['analytics', 'users', 'academic', 'schedules', 'reports', 'system_status', 'module_permissions', 'calendar'],
   rectorado: ['analytics', 'users', 'academic', 'schedules', 'reports'],
-  talento_humano: ['analytics', 'users', 'academic', 'schedules', 'reports', 'administrative_hours'],
+  talento_humano: ['analytics', 'users', 'academic', 'schedules', 'reports', 'administrative_hours', 'calendar'],
 };
 
 

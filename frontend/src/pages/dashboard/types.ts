@@ -1,4 +1,14 @@
+/** Día no laborable institucional (feriado). */
+export interface DiaNoLaborable {
+  id: string;
+  /** Fecha YYYY-MM-DD. */
+  fecha: string;
+  descripcion: string;
+}
+
 export interface EstadoAsistenciaActual {
+  /** Presente cuando hoy es feriado: no hay marcación. */
+  diaNoLaborable?: Pick<DiaNoLaborable, 'fecha' | 'descripcion'> | null;
   horarioActivo: {
     id: string;
     hora_inicio: string;

@@ -6,6 +6,8 @@ import { getApiMessage } from '../../../lib/apiError';
 type Action = 'entrada' | 'salida';
 
 export interface AdministrativeAttendanceState {
+  /** Presente cuando hoy es feriado: no hay marcación. */
+  diaNoLaborable?: { fecha: string; descripcion: string } | null;
   horarioActivo: { id: string; hora_inicio: string; hora_fin: string; jornada: string; ubicacion?: string | null; descripcion?: string | null } | null;
   registroAbierto: { id: string; timestamp_entrada: string | null } | null;
   puedeMarcarEntrada: boolean;

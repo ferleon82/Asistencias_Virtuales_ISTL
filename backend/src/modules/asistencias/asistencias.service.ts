@@ -3,6 +3,7 @@ import { prisma } from '../../config/database';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { registrarAuditoria } from '../../shared/attendance/audit';
 import { addMinutes, atEcuadorTime, currentTime, ecuadorDayRange, ecuadorDbDate, ecuadorWeekday } from '../../shared/attendance/clock';
+import { getDiaNoLaborable, mensajeDiaNoLaborable } from '../../shared/attendance/calendar';
 import { withDocenteLock, type DbClient } from '../../shared/attendance/lock';
 import { marcacionAbiertaQueBloquea } from '../../shared/attendance/openRecords';
 import { saveAttendancePhoto } from '../../shared/attendance/photo';
@@ -119,11 +120,14 @@ export class AsistenciasService {
 
     const now = currentTime();
     const { windows, photoRequired } = await getAttendanceSettings();
-    const [horario, registroAbierto, bloqueo] = await Promise.all([
+    const [diaNoLaborable, horarioDelDia, registroAbierto, bloqueo] = await Promise.all([
+      getDiaNoLaborable(now),
       this.findHorarioActivo(user.id, now, windows),
       this.findRegistroAbiertoVigente(user.id, now, windows),
       marcacionAbiertaQueBloquea(user.id, now, windows),
     ]);
+    // En un feriado no hay clase activa; una marcación abierta previa sí puede cerrarse.
+    const horario = diaNoLaborable ? null : horarioDelDia;
     const registroDelHorario = horario
       ? await this.findRegistroDelHorarioHoyIncluyendoJustificacion(user.id, horario.id, now)
       : null;
@@ -135,6 +139,7 @@ export class AsistenciasService {
 
     return {
       horarioActivo: horario,
+      diaNoLaborable,
       registroAbierto,
       puedeMarcarEntrada: !!horario && !bloqueo && !registroDelHorario,
       puedeMarcarSalida,
@@ -156,6 +161,11 @@ export class AsistenciasService {
     const { windows, photoRequired } = await getAttendanceSettings();
 
     return withDocenteLock(user.id, async (tx) => {
+      const diaNoLaborable = await getDiaNoLaborable(now, tx);
+      if (diaNoLaborable) {
+        throw new AppError(mensajeDiaNoLaborable(diaNoLaborable), 409);
+      }
+
       const bloqueo = await marcacionAbiertaQueBloquea(user.id, now, windows, tx);
       if (bloqueo === 'clase') {
         throw new AppError('Ya existe una asistencia abierta. Marque salida antes de registrar otro ingreso.', 409);
@@ -336,6 +346,10 @@ export class AsistenciasService {
     }
 
     const now = currentTime();
+    const diaNoLaborable = await getDiaNoLaborable(now);
+    if (diaNoLaborable) {
+      throw new AppError(`Hoy es feriado (${diaNoLaborable.descripcion}): no hay clases que justificar.`, 400);
+    }
     const { windows } = await getAttendanceSettings();
     const diaSemana = ecuadorWeekday(now);
     const hoy = ecuadorDbDate(now);
