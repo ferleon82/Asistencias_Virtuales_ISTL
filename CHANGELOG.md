@@ -6,6 +6,16 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Horas administrativas para TICs y matriz de modulos
+
+- TICs puede administrar las horas administrativas (crear, editar y desactivar
+  bloques, y ver las marcaciones) cuando el modulo esta habilitado para su rol
+  en Configuracion. Antes la casilla se guardaba pero no tenia efecto.
+- En la matriz de modulos, las casillas que no aplican a un rol (por ejemplo,
+  Feriados para Rectorado o Marcar asistencia para TICs) aparecen en gris y no
+  se pueden marcar. El servidor tampoco las habilita aunque se envien.
+- Sin migraciones.
+
 ### Calendario de dias no laborables
 
 - Nueva pestana **Feriados** para Talento Humano y TICs: registran un dia o un

@@ -11,9 +11,9 @@ router.get('/estado-actual', roleGuard(Rol.docente), estadoAdministrativoActual)
 router.post('/entrada', roleGuard(Rol.docente), asistenciaRateLimiter, marcarEntradaAdministrativa);
 router.post('/salida', roleGuard(Rol.docente), asistenciaRateLimiter, marcarSalidaAdministrativa);
 router.get('/mis-registros', roleGuard(Rol.docente), listMisRegistrosAdministrativos);
-router.get('/registros', roleGuard(Rol.talento_humano), listRegistrosAdministrativos);
-router.get('/', roleGuard(Rol.docente, Rol.talento_humano), listHorariosAdministrativos);
-router.post('/', roleGuard(Rol.talento_humano), createHorarioAdministrativo);
-router.put('/:id', roleGuard(Rol.talento_humano), updateHorarioAdministrativo);
-router.delete('/:id', roleGuard(Rol.talento_humano), deactivateHorarioAdministrativo);
+router.get('/registros', roleGuard(Rol.talento_humano, Rol.tics), listRegistrosAdministrativos);
+router.get('/', roleGuard(Rol.docente, Rol.talento_humano, Rol.tics), listHorariosAdministrativos);
+router.post('/', roleGuard(Rol.talento_humano, Rol.tics), createHorarioAdministrativo);
+router.put('/:id', roleGuard(Rol.talento_humano, Rol.tics), updateHorarioAdministrativo);
+router.delete('/:id', roleGuard(Rol.talento_humano, Rol.tics), deactivateHorarioAdministrativo);
 export default router;

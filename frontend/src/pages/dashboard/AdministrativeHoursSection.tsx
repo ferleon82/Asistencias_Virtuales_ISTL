@@ -27,7 +27,7 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
   const deactivate = async (id: string) => { if (!window.confirm('¿Desea desactivar este bloque administrativo?')) return; setError(''); try { await api.delete(`/horas-administrativas/${id}`); await load(); } catch (requestError) { setError(errorMessage(requestError)); } };
   const update = (key: keyof typeof initial, value: string) => setForm((current) => ({ ...current, [key]: value }));
   return <section className="dashboard-section">
-    <div><h2 className="section-title">Horas administrativas</h2><p className="section-subtitle">Configure los bloques no académicos de cada docente. Solo Talento Humano puede administrarlos.</p></div>
+    <div><h2 className="section-title">Horas administrativas</h2><p className="section-subtitle">Configure los bloques no académicos de cada docente. Los administran Talento Humano y TICs.</p></div>
     {message && <div className="mt-4 rounded-md border border-teal-200 bg-teal-50 p-3 text-sm text-istl-700">{message}</div>}
     {error && <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
     <form onSubmit={(event) => void submit(event)} className="mt-5 grid grid-cols-1 gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">

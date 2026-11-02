@@ -18,7 +18,13 @@ interface AuthScope {
   rol: string;
 }
 
-const systemModules: Array<{ key: string; label: string; roles: Rol[] }> = [
+/**
+ * Módulos configurables por rol. `roles` son los roles habilitados por defecto;
+ * `disponibleEn` son los únicos roles que el sistema permite habilitar (por
+ * defecto, los mismos de `roles`). Habilitar un módulo fuera de esa lista no
+ * tendría efecto, porque las rutas de la API no lo permiten.
+ */
+const systemModules: Array<{ key: string; label: string; roles: Rol[]; disponibleEn?: Rol[] }> = [
   {
     key: 'teacher_attendance',
     label: 'Marcar asistencia',
@@ -33,6 +39,8 @@ const systemModules: Array<{ key: string; label: string; roles: Rol[] }> = [
     key: 'analytics',
     label: 'Dashboard interactivo',
     roles: [Rol.tics, Rol.rectorado, Rol.talento_humano],
+    // El coordinador lo ve limitado a su carrera.
+    disponibleEn: [Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano],
   },
   {
     key: 'users',
@@ -58,6 +66,7 @@ const systemModules: Array<{ key: string; label: string; roles: Rol[] }> = [
     key: 'administrative_hours',
     label: 'Horas administrativas',
     roles: [Rol.talento_humano],
+    disponibleEn: [Rol.talento_humano, Rol.tics],
   },
   {
     key: 'calendar',
@@ -77,6 +86,18 @@ const systemModules: Array<{ key: string; label: string; roles: Rol[] }> = [
 ];
 
 const configurableRoles: Rol[] = [Rol.docente, Rol.coordinador, Rol.tics, Rol.rectorado, Rol.talento_humano];
+
+/** Indica si el módulo puede habilitarse para el rol. */
+export function moduloDisponible(moduleKey: string, rol: string): boolean {
+  const module = systemModules.find((item) => item.key === moduleKey);
+  return !!module && (module.disponibleEn ?? module.roles).includes(rol as Rol);
+}
+
+/** Agrega `disponible` y apaga lo habilitado para un rol que no puede usar el módulo. */
+function conDisponibilidad<T extends { module_key: string; rol: string; enabled: boolean }>(permission: T) {
+  const disponible = moduloDisponible(permission.module_key, permission.rol);
+  return { ...permission, enabled: permission.enabled && disponible, disponible };
+}
 
 const defaultSystemSettings = {
   attendance_photo_required: {
@@ -388,18 +409,20 @@ export class AdminService {
   async listModulePermissions() {
     await this.ensureModulePermissions();
 
-    return prisma.modulePermission.findMany({
+    const permissions = await prisma.modulePermission.findMany({
       orderBy: [{ module_key: 'asc' }, { rol: 'asc' }],
     });
+    return permissions.map(conDisponibilidad);
   }
 
   async listCurrentModulePermissions(user: AuthScope) {
     await this.ensureModulePermissions();
 
-    return prisma.modulePermission.findMany({
+    const permissions = await prisma.modulePermission.findMany({
       where: { rol: user.rol as Rol },
       orderBy: { module_key: 'asc' },
     });
+    return permissions.map(conDisponibilidad);
   }
 
   async updateModulePermissions(data: ModulePermissionsInput, user: AuthScope, ip: string) {
@@ -422,7 +445,10 @@ export class AdminService {
               },
             },
             data: {
-              enabled: permission.module_key === 'module_permissions' && permission.rol === Rol.tics ? true : permission.enabled,
+              enabled:
+                permission.module_key === 'module_permissions' && permission.rol === Rol.tics
+                  ? true
+                  : permission.enabled && moduloDisponible(permission.module_key, permission.rol),
             },
           })
         )

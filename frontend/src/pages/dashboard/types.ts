@@ -311,6 +311,8 @@ export interface ModulePermission {
   module_label: string;
   rol: string;
   enabled: boolean;
+  /** `false` si el rol no puede usar el módulo y la casilla no aplica. */
+  disponible?: boolean;
 }
 
 export interface SystemSettings {
