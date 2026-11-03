@@ -6,6 +6,26 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Jornada administrativa semanal y temporal
+
+- En Horas administrativas, la jornada de un docente se registra en un solo
+  formulario: datos comunes una vez y horarios con varios dias (por ejemplo,
+  lunes a viernes 08:00-13:00). Se guarda completa o no se guarda.
+- La lista muestra una fila por jornada, con **Editar** y **Desactivar**. Los
+  bloques existentes se agrupan solos por docente, periodo, vigencia,
+  modalidad, ubicacion y actividad.
+- Vigencia "Rango de fechas": una jornada temporal (por ejemplo, dos semanas
+  solo virtual) reemplaza la jornada regular del docente en esas fechas; la
+  regular vuelve sola al terminar. La marcacion, la vista del docente y los
+  reportes la respetan.
+- Los cruces indican el bloque y la clase u otra jornada con la que chocan.
+  Dos jornadas temporales del mismo docente no pueden superponerse.
+- La jornada (matutina, vespertina, nocturna) de cada bloque se asigna segun
+  su hora de inicio.
+- Nuevos endpoints `POST/PUT/DELETE /api/v1/horas-administrativas/jornadas`.
+- Migracion `20261103000000_jornada_administrativa_semanal` (columnas
+  `grupo_id` y `temporal`; agrupa los bloques existentes).
+
 ### Horas administrativas para TICs y matriz de modulos
 
 - TICs puede administrar las horas administrativas (crear, editar y desactivar
