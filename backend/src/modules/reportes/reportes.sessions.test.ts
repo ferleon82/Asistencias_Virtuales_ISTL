@@ -150,6 +150,19 @@ describe('buildAttendanceSummary', () => {
     expect(summary.totals).toMatchObject({ programadas: 1, presentes: 1, ausente: 0 });
   });
 
+  it('no programa la jornada regular en las fechas de una jornada temporal', () => {
+    const pausas = [{ desde: '2026-10-06', hasta: '2026-10-07' }];
+    const slots = [
+      slot({ id: 'regular-lunes', pausas }),
+      slot({ id: 'regular-martes', dia_semana: DiaSemana.martes, pausas }),
+      slot({ id: 'temporal-martes', dia_semana: DiaSemana.martes, hora_inicio: '15:00' }),
+    ];
+    const summary = buildAttendanceSummary({ from, to, now: afterWeek, slots, marks: [] });
+
+    // Lunes regular (fuera de la pausa) + martes temporal; el martes regular está en pausa.
+    expect(summary.totals).toMatchObject({ programadas: 2, ausente: 2 });
+  });
+
   it('presentes + justificadas sin entrada + ausentes suman las programadas', () => {
     const slots = [slot(), slot({ id: 'horario-martes', dia_semana: DiaSemana.martes }), slot({ id: 'horario-miercoles', dia_semana: DiaSemana.miercoles })];
     const marks = [

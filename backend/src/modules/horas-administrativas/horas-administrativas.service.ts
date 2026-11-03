@@ -1,4 +1,5 @@
-import { Prisma, Rol } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { Prisma, Rol, type DiaSemana } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { registrarAuditoria } from '../../shared/attendance/audit';
@@ -9,7 +10,8 @@ import { marcacionAbiertaQueBloquea } from '../../shared/attendance/openRecords'
 import { saveAttendancePhoto } from '../../shared/attendance/photo';
 import { getAttendanceSettings, type AttendanceWindows } from '../../shared/attendance/settings';
 import { bloqueActivo, estadoEntrada, marcacionAbiertaVigente, ventanaSalida } from '../../shared/attendance/windows';
-import type { AdministrativeLocationInput, HorarioAdministrativoInput, HorarioAdministrativoQueryInput, HorarioAdministrativoUpdateInput } from './horas-administrativas.schemas';
+import { bloquesDelDia, formatFecha, jornadaPorHora } from './jornada';
+import type { AdministrativeLocationInput, HorarioAdministrativoInput, HorarioAdministrativoQueryInput, HorarioAdministrativoUpdateInput, JornadaAdministrativaInput } from './horas-administrativas.schemas';
 
 interface AuthScope { id: string; rol: string; }
 
@@ -22,8 +24,19 @@ const includeRegistro = { horario_administrativo: { include: includeHorario } } 
 
 function overlaps(startA: string, endA: string, startB: string, endB: string): boolean { return startA < endB && startB < endA; }
 
+const DIA_LABEL: Record<DiaSemana, string> = { lunes: 'lunes', martes: 'martes', miercoles: 'miércoles', jueves: 'jueves', viernes: 'viernes', sabado: 'sábado' };
+const bloqueKey = (bloque: { dia_semana: string; hora_inicio: string; hora_fin: string }) => `${bloque.dia_semana}|${bloque.hora_inicio}|${bloque.hora_fin}`;
+const dbDate = (key: string) => new Date(`${key}T00:00:00Z`);
+
 export class HorasAdministrativasService {
   async list(filters: HorarioAdministrativoQueryInput, user: AuthScope) {
+    if (filters.hoy) {
+      const now = currentTime();
+      const dia = ecuadorWeekday(now);
+      const docenteId = user.rol === Rol.docente ? user.id : filters.docente_id;
+      if (!dia || !docenteId) return [];
+      return this.bloquesDeHoy(docenteId, now, dia);
+    }
     const where: Prisma.HorarioAdministrativoWhereInput = {
       docente_id: user.rol === Rol.docente ? user.id : filters.docente_id,
       periodo_academico_id: filters.periodo_academico_id,
@@ -54,7 +67,7 @@ export class HorasAdministrativasService {
     await this.assertDocente(data.docente_id);
     const periodo = await this.assertPeriodo(data.periodo_academico_id);
     await this.assertNoOverlap(data, undefined);
-    const horario = await prisma.horarioAdministrativo.create({ data: { ...data, fecha_inicio: periodo.fecha_inicio, fecha_fin: periodo.fecha_fin }, include: includeHorario });
+    const horario = await prisma.horarioAdministrativo.create({ data: { ...data, fecha_inicio: periodo.fecha_inicio, fecha_fin: periodo.fecha_fin, grupo_id: randomUUID() }, include: includeHorario });
     await registrarAuditoria({ userId: user.id, accion: 'CREATE_HORARIO_ADMINISTRATIVO', tabla: TABLA_AUDITORIA, registroId: horario.id, ip, datos: data });
     return horario;
   }
@@ -66,7 +79,9 @@ export class HorasAdministrativasService {
     await this.assertDocente(next.docente_id);
     const periodo = await this.assertPeriodo(next.periodo_academico_id);
     await this.assertNoOverlap(next, id);
-    const horario = await prisma.horarioAdministrativo.update({ where: { id }, data: { ...next, fecha_inicio: periodo.fecha_inicio, fecha_fin: periodo.fecha_fin }, include: includeHorario });
+    // Un bloque de jornada temporal conserva sus fechas; el regular sigue al período.
+    const vigencia = current.temporal ? {} : { fecha_inicio: periodo.fecha_inicio, fecha_fin: periodo.fecha_fin };
+    const horario = await prisma.horarioAdministrativo.update({ where: { id }, data: { ...next, ...vigencia }, include: includeHorario });
     await registrarAuditoria({ userId: user.id, accion: 'UPDATE_HORARIO_ADMINISTRATIVO', tabla: TABLA_AUDITORIA, registroId: id, ip, datos: data });
     return horario;
   }
@@ -75,6 +90,29 @@ export class HorasAdministrativasService {
     const horario = await prisma.horarioAdministrativo.update({ where: { id }, data: { activo: false }, include: includeHorario }).catch(() => { throw new AppError('Horario administrativo no encontrado.', 404); });
     await registrarAuditoria({ userId: user.id, accion: 'DEACTIVATE_HORARIO_ADMINISTRATIVO', tabla: TABLA_AUDITORIA, registroId: id, ip, datos: { activo: false } });
     return horario;
+  }
+
+  /** Crea una jornada: todos sus bloques o ninguno. */
+  async createJornada(data: JornadaAdministrativaInput, user: AuthScope, ip: string) {
+    return this.guardarJornada(randomUUID(), data, user, ip, 'CREATE_JORNADA_ADMINISTRATIVA');
+  }
+
+  /**
+   * Reemplaza los bloques de una jornada. Los bloques que siguen (mismo día y
+   * horario, y mismo docente y período) se actualizan y conservan sus
+   * marcaciones; los quitados se desactivan, nunca se borran.
+   */
+  async updateJornada(grupoId: string, data: JornadaAdministrativaInput, user: AuthScope, ip: string) {
+    const existe = await prisma.horarioAdministrativo.findFirst({ where: { grupo_id: grupoId, activo: true }, select: { id: true } });
+    if (!existe) throw new AppError('Jornada administrativa no encontrada.', 404);
+    return this.guardarJornada(grupoId, data, user, ip, 'UPDATE_JORNADA_ADMINISTRATIVA');
+  }
+
+  async deactivateJornada(grupoId: string, user: AuthScope, ip: string) {
+    const { count } = await prisma.horarioAdministrativo.updateMany({ where: { grupo_id: grupoId, activo: true }, data: { activo: false } });
+    if (count === 0) throw new AppError('Jornada administrativa no encontrada.', 404);
+    await registrarAuditoria({ userId: user.id, accion: 'DEACTIVATE_JORNADA_ADMINISTRATIVA', tabla: TABLA_AUDITORIA, registroId: grupoId, ip, datos: { bloques: count } });
+    return { grupo_id: grupoId, bloques: count };
   }
 
   async estadoActual(user: AuthScope) {
@@ -142,9 +180,78 @@ export class HorasAdministrativasService {
   private async activeSchedule(docenteId: string, now: Date, windows: AttendanceWindows, db: DbClient = prisma) {
     const diaSemana = ecuadorWeekday(now);
     if (!diaSemana) return null;
+    return bloqueActivo(await this.bloquesDeHoy(docenteId, now, diaSemana, db), now, windows);
+  }
+
+  /** Bloques que el docente debe cumplir hoy: una jornada temporal vigente pausa la regular. */
+  private async bloquesDeHoy(docenteId: string, now: Date, dia: DiaSemana, db: DbClient = prisma) {
     const hoy = ecuadorDbDate(now);
-    const schedules = await db.horarioAdministrativo.findMany({ where: { docente_id: docenteId, dia_semana: diaSemana, activo: true, fecha_inicio: { lte: hoy }, fecha_fin: { gte: hoy } }, include: includeHorario, orderBy: { hora_inicio: 'asc' } });
-    return bloqueActivo(schedules, now, windows);
+    const vigentes = await db.horarioAdministrativo.findMany({ where: { docente_id: docenteId, activo: true, fecha_inicio: { lte: hoy }, fecha_fin: { gte: hoy } }, include: includeHorario, orderBy: { hora_inicio: 'asc' } });
+    return bloquesDelDia(vigentes, dia);
+  }
+
+  private async guardarJornada(grupoId: string, data: JornadaAdministrativaInput, user: AuthScope, ip: string, accion: string) {
+    await this.assertDocente(data.docente_id);
+    const periodo = await this.assertPeriodo(data.periodo_academico_id);
+    const temporal = !!data.fecha_inicio;
+    const fecha_inicio = data.fecha_inicio ? dbDate(data.fecha_inicio) : periodo.fecha_inicio;
+    const fecha_fin = data.fecha_fin ? dbDate(data.fecha_fin) : periodo.fecha_fin;
+    if (temporal && (fecha_inicio < periodo.fecha_inicio || fecha_fin > periodo.fecha_fin)) {
+      throw new AppError(`Las fechas de la jornada temporal deben estar dentro del período (${formatFecha(periodo.fecha_inicio)} al ${formatFecha(periodo.fecha_fin)}).`, 400);
+    }
+    const comunes = { docente_id: data.docente_id, periodo_academico_id: data.periodo_academico_id, modalidad: data.modalidad, ubicacion: data.ubicacion || null, descripcion: data.descripcion || null, fecha_inicio, fecha_fin, temporal, grupo_id: grupoId };
+
+    return withDocenteLock(data.docente_id, async (tx) => {
+      await this.assertJornadaSinCruces(tx, data, grupoId, { temporal, fecha_inicio, fecha_fin });
+      const actuales = await tx.horarioAdministrativo.findMany({ where: { grupo_id: grupoId, activo: true } });
+      const reutilizables = new Map(
+        actuales.filter((bloque) => bloque.docente_id === data.docente_id && bloque.periodo_academico_id === data.periodo_academico_id).map((bloque) => [bloqueKey(bloque), bloque])
+      );
+      const conservados = new Set<string>();
+      for (const bloque of data.bloques) {
+        const existente = reutilizables.get(bloqueKey(bloque));
+        const fila = { ...comunes, ...bloque, jornada: jornadaPorHora(bloque.hora_inicio) };
+        if (existente) {
+          conservados.add(existente.id);
+          await tx.horarioAdministrativo.update({ where: { id: existente.id }, data: fila });
+        } else {
+          await tx.horarioAdministrativo.create({ data: fila });
+        }
+      }
+      const quitados = actuales.filter((bloque) => !conservados.has(bloque.id)).map((bloque) => bloque.id);
+      if (quitados.length) await tx.horarioAdministrativo.updateMany({ where: { id: { in: quitados } }, data: { activo: false } });
+      await registrarAuditoria({ userId: user.id, accion, tabla: TABLA_AUDITORIA, registroId: grupoId, ip, datos: { ...data, desactivados: quitados.length } }, tx);
+      return tx.horarioAdministrativo.findMany({ where: { grupo_id: grupoId, activo: true }, include: includeHorario, orderBy: [{ dia_semana: 'asc' }, { hora_inicio: 'asc' }] });
+    });
+  }
+
+  /**
+   * Una jornada no puede cruzarse con las clases del docente ni con otra
+   * jornada que rija los mismos días: dos regulares, o dos temporales con
+   * fechas superpuestas (eso último no se permite). Una temporal y la regular
+   * no se cruzan, porque la temporal la reemplaza en sus fechas.
+   */
+  private async assertJornadaSinCruces(tx: DbClient, data: JornadaAdministrativaInput, grupoId: string, vigencia: { temporal: boolean; fecha_inicio: Date; fecha_fin: Date }) {
+    const [clases, otros] = await Promise.all([
+      tx.horario.findMany({
+        where: { docente_id: data.docente_id, periodo_academico_id: data.periodo_academico_id, activo: true, fecha_inicio_ciclo: { lte: vigencia.fecha_fin }, fecha_fin_ciclo: { gte: vigencia.fecha_inicio } },
+        select: { dia_semana: true, hora_inicio: true, hora_fin: true, materia: { select: { nombre: true } } },
+      }),
+      tx.horarioAdministrativo.findMany({
+        where: { docente_id: data.docente_id, activo: true, grupo_id: { not: grupoId }, temporal: vigencia.temporal, fecha_inicio: { lte: vigencia.fecha_fin }, fecha_fin: { gte: vigencia.fecha_inicio } },
+        select: { dia_semana: true, hora_inicio: true, hora_fin: true, fecha_inicio: true, fecha_fin: true },
+      }),
+    ]);
+    if (vigencia.temporal && otros.length) {
+      throw new AppError(`El docente ya tiene una jornada temporal del ${formatFecha(otros[0].fecha_inicio)} al ${formatFecha(otros[0].fecha_fin)}; las fechas no pueden superponerse.`, 409);
+    }
+    for (const bloque of data.bloques) {
+      const etiqueta = `${DIA_LABEL[bloque.dia_semana]} ${bloque.hora_inicio}-${bloque.hora_fin}`;
+      const clase = clases.find((item) => item.dia_semana === bloque.dia_semana && overlaps(bloque.hora_inicio, bloque.hora_fin, item.hora_inicio, item.hora_fin));
+      if (clase) throw new AppError(`El bloque del ${etiqueta} se cruza con la clase de ${clase.materia.nombre} (${clase.hora_inicio}-${clase.hora_fin}).`, 409);
+      const otro = otros.find((item) => item.dia_semana === bloque.dia_semana && overlaps(bloque.hora_inicio, bloque.hora_fin, item.hora_inicio, item.hora_fin));
+      if (otro) throw new AppError(`El bloque del ${etiqueta} se cruza con otra jornada administrativa del docente (${otro.hora_inicio}-${otro.hora_fin}).`, 409);
+    }
   }
   /** Marcación administrativa de hoy sin salida. Con `windows`, solo si todavía puede cerrarse. */
   private async openRecord(docenteId: string, now: Date, windows: AttendanceWindows | null, db: DbClient = prisma) {

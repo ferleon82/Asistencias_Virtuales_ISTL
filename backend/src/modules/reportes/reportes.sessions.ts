@@ -30,6 +30,8 @@ export interface ScheduleSlot {
   fecha_inicio: Date;
   fecha_fin: Date;
   grupo: SessionGroup;
+  /** Fechas `YYYY-MM-DD` en que el bloque no rige (jornada administrativa temporal). */
+  pausas?: Array<{ desde: string; hasta: string }>;
 }
 
 /** Registro de asistencia (con o sin entrada) asociado a un bloque. */
@@ -157,6 +159,7 @@ export function buildAttendanceSummary(input: {
       .filter((day) => day.weekday === DAY_NUMBER[slot.dia_semana])
       .filter((day) => day.key >= vigenteDesde && day.key <= vigenteHasta)
       .filter((day) => !input.noLaborables?.has(day.key))
+      .filter((day) => !slot.pausas?.some((pausa) => day.key >= pausa.desde && day.key <= pausa.hasta))
       .filter((day) => sessionStart(day.key, slot.hora_inicio) <= input.now)
       .forEach((day) => ensureSession(slot.id, day.key, slot.grupo));
   });

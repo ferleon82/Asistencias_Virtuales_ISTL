@@ -42,6 +42,7 @@ const bloque = {
   hora_fin: '16:00',
   fecha_inicio: new Date('2026-09-01T00:00:00.000Z'),
   fecha_fin: new Date('2026-10-05T00:00:00.000Z'),
+  temporal: false,
 };
 
 describe('HorasAdministrativasService', () => {
@@ -72,11 +73,24 @@ describe('HorasAdministrativasService', () => {
     expect(prisma.horarioAdministrativo.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          dia_semana: DiaSemana.lunes,
+          docente_id: user.id,
           fecha_inicio: { lte: new Date('2026-10-05T00:00:00.000Z') },
           fecha_fin: { gte: new Date('2026-10-05T00:00:00.000Z') },
         }),
       })
+    );
+  });
+
+  it('una jornada temporal vigente reemplaza a la regular: solo se marca el bloque temporal', async () => {
+    const temporal = { ...bloque, id: 'adm-temp', hora_inicio: '14:00', hora_fin: '15:00', temporal: true };
+    // El temporal es del martes: el lunes la regular está en pausa y no hay bloque que marcar.
+    vi.mocked(prisma.horarioAdministrativo.findMany).mockResolvedValue([bloque, { ...temporal, dia_semana: DiaSemana.martes }] as never);
+    await expect(service.marcarEntrada(user, {}, '127.0.0.1')).rejects.toMatchObject({ statusCode: 404 });
+
+    vi.mocked(prisma.horarioAdministrativo.findMany).mockResolvedValue([bloque, temporal] as never);
+    await service.marcarEntrada(user, {}, '127.0.0.1');
+    expect(prisma.registroAdministrativo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ horario_administrativo_id: 'adm-temp' }) })
     );
   });
 

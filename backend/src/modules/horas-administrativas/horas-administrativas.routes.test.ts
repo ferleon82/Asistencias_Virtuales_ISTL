@@ -56,16 +56,20 @@ describe('API /api/v1/horas-administrativas', () => {
     expect(await request('GET', '/registros', rol)).toBe(200);
     // Datos inválidos: pasa el control de rol y lo rechaza la validación.
     expect(await request('POST', '/', rol, {})).toBe(400);
+    expect(await request('POST', '/jornadas', rol, {})).toBe(400);
   });
 
   it.each(['coordinador', 'rectorado'])('%s no puede administrarlos', async (rol) => {
     expect(await request('GET', '?activo=true', rol)).toBe(403);
     expect(await request('GET', '/registros', rol)).toBe(403);
     expect(await request('POST', '/', rol, {})).toBe(403);
+    expect(await request('POST', '/jornadas', rol, {})).toBe(403);
   });
 
   it('el docente consulta sus bloques pero no los crea', async () => {
     expect(await request('GET', '?activo=true', 'docente')).toBe(200);
     expect(await request('POST', '/', 'docente', {})).toBe(403);
+    expect(await request('POST', '/jornadas', 'docente', {})).toBe(403);
+    expect(await request('DELETE', '/jornadas/550e8400-e29b-41d4-a716-446655440002', 'docente')).toBe(403);
   });
 });
