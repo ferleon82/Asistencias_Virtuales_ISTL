@@ -3,6 +3,7 @@ import { AppError } from '../../shared/middleware/errorHandler';
 import { getFechasNoLaborables } from '../../shared/attendance/calendar';
 import { currentTime } from '../../shared/attendance/clock';
 import { PHOTO_URL_EXPORT_TTL_SECONDS, PHOTO_URL_TTL_SECONDS, withSignedPhotos } from '../../shared/attendance/photoUrls';
+import { pausasPorDocente } from '../horas-administrativas/jornada';
 import { renderReportExcel } from './reportes.excel';
 import { renderReportPdf } from './reportes.pdf';
 import {
@@ -100,6 +101,8 @@ export class ReportesService {
     ]);
 
     // En la jornada administrativa el desglose natural es por docente (en clases, por carrera).
+    // Una jornada temporal pausa la regular del docente en sus fechas.
+    const pausas = pausasPorDocente(horarios);
     const slots: ScheduleSlot[] = horarios.map((horario) => ({
       id: horario.id,
       dia_semana: horario.dia_semana,
@@ -107,6 +110,7 @@ export class ReportesService {
       fecha_inicio: horario.fecha_inicio,
       fecha_fin: horario.fecha_fin,
       grupo: grupoDocente(horario.docente),
+      pausas: horario.temporal ? undefined : pausas.get(horario.docente_id),
     }));
     const marks: AttendanceMark[] = registros.map((registro) => ({
       slotId: registro.horario_administrativo_id,

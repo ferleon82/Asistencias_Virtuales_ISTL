@@ -28,7 +28,14 @@ export function AdministrativeDaySection({ diaSemanaEcuador, schedules, records,
           <div className="mt-3 space-y-2">
             {schedules.map((schedule) => (
               <div key={schedule.id} className="rounded-md border border-teal-200 bg-teal-50 px-3 py-3">
-                <p className="text-sm font-semibold text-slate-700">{schedule.descripcion || 'Actividad administrativa'}</p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {schedule.descripcion || 'Actividad administrativa'}
+                  {schedule.temporal && schedule.fecha_fin && (
+                    <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      Temporal hasta {schedule.fecha_fin.slice(0, 10).split('-').reverse().join('/')}
+                    </span>
+                  )}
+                </p>
                 <p className="mt-1 text-xs text-slate-500">{schedule.hora_inicio} - {schedule.hora_fin} · {schedule.modalidad}{schedule.ubicacion ? ` · ${schedule.ubicacion}` : ''}</p>
               </div>
             ))}

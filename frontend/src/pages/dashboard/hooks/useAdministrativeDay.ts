@@ -10,6 +10,8 @@ export interface AdministrativeScheduleItem {
   modalidad: string;
   ubicacion?: string | null;
   descripcion?: string | null;
+  temporal?: boolean;
+  fecha_fin?: string;
 }
 
 export interface AdministrativeRecordItem {
@@ -34,7 +36,7 @@ export function useAdministrativeDay(userRole: string | undefined, diaSemanaEcua
     try {
       setAdministrativeDayError('');
       const [schedules, records] = await Promise.all([
-        api.get(`/horas-administrativas?activo=true&dia_semana=${diaSemanaEcuador}`),
+        api.get(`/horas-administrativas?hoy=true&dia=${diaSemanaEcuador}`),
         api.get('/horas-administrativas/mis-registros'),
       ]);
       setAdministrativeSchedulesToday(schedules.data.data);

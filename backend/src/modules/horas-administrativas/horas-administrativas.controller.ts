@@ -3,7 +3,7 @@ import { AppError } from '../../shared/middleware/errorHandler';
 import { getClientIp as ip } from '../../shared/utils/request';
 import { withSignedPhotos } from '../../shared/attendance/photoUrls';
 import { horasAdministrativasService } from './horas-administrativas.service';
-import { createHorarioAdministrativoSchema, horarioAdministrativoParamsSchema, horarioAdministrativoQuerySchema, locationSchema, updateHorarioAdministrativoSchema } from './horas-administrativas.schemas';
+import { createHorarioAdministrativoSchema, grupoParamsSchema, horarioAdministrativoParamsSchema, jornadaAdministrativaSchema, horarioAdministrativoQuerySchema, locationSchema, updateHorarioAdministrativoSchema } from './horas-administrativas.schemas';
 
 function user(req: Request) { if (!req.user) throw new AppError('Autenticación requerida.', 401); return req.user; }
 
@@ -16,3 +16,6 @@ export async function deactivateHorarioAdministrativo(req: Request, res: Respons
 export async function estadoAdministrativoActual(req: Request, res: Response, next: NextFunction) { try { res.json({ ok: true, data: withSignedPhotos(await horasAdministrativasService.estadoActual(user(req))) }); } catch (error) { next(error); } }
 export async function marcarEntradaAdministrativa(req: Request, res: Response, next: NextFunction) { try { res.status(201).json({ ok: true, message: 'Ingreso administrativo registrado correctamente.', data: withSignedPhotos(await horasAdministrativasService.marcarEntrada(user(req), locationSchema.parse(req.body), ip(req), req.headers['user-agent'])) }); } catch (error) { next(error); } }
 export async function marcarSalidaAdministrativa(req: Request, res: Response, next: NextFunction) { try { res.json({ ok: true, message: 'Salida administrativa registrada correctamente.', data: withSignedPhotos(await horasAdministrativasService.marcarSalida(user(req), locationSchema.parse(req.body), ip(req))) }); } catch (error) { next(error); } }
+export async function createJornadaAdministrativa(req: Request, res: Response, next: NextFunction) { try { const data = await horasAdministrativasService.createJornada(jornadaAdministrativaSchema.parse(req.body), user(req), ip(req)); res.status(201).json({ ok: true, message: `Jornada administrativa registrada (${data.length} ${data.length === 1 ? 'bloque' : 'bloques'}).`, data }); } catch (error) { next(error); } }
+export async function updateJornadaAdministrativa(req: Request, res: Response, next: NextFunction) { try { const { grupoId } = grupoParamsSchema.parse(req.params); const data = await horasAdministrativasService.updateJornada(grupoId, jornadaAdministrativaSchema.parse(req.body), user(req), ip(req)); res.json({ ok: true, message: 'Jornada administrativa actualizada.', data }); } catch (error) { next(error); } }
+export async function deactivateJornadaAdministrativa(req: Request, res: Response, next: NextFunction) { try { const { grupoId } = grupoParamsSchema.parse(req.params); res.json({ ok: true, message: 'Jornada administrativa desactivada.', data: await horasAdministrativasService.deactivateJornada(grupoId, user(req), ip(req)) }); } catch (error) { next(error); } }

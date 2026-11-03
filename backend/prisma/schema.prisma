@@ -226,6 +226,10 @@ model HorarioAdministrativo {
   activo               Boolean  @default(true)
   fecha_inicio         DateTime @db.Date
   fecha_fin            DateTime @db.Date
+  /// Jornada a la que pertenece el bloque: se crea, edita y desactiva en conjunto.
+  grupo_id             String
+  /// Jornada temporal: en sus fechas reemplaza a la jornada regular del docente.
+  temporal             Boolean  @default(false)
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt
 
@@ -234,6 +238,7 @@ model HorarioAdministrativo {
   registros           RegistroAdministrativo[]
 
   @@index([docente_id, dia_semana, activo])
+  @@index([grupo_id])
   @@index([periodo_academico_id])
   @@index([fecha_inicio, fecha_fin])
   @@map("horarios_administrativos")
