@@ -6,6 +6,19 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Jornada administrativa para varios docentes
+
+- Al crear una jornada administrativa se pueden marcar varios docentes con
+  casillas, busqueda y "Marcar todos" o "Marcar los N visibles". Se registra
+  una jornada independiente por docente, que luego se edita por separado.
+- Guardado parcial: un docente con cruce no impide registrar a los demas. Los
+  que fallan se listan con su motivo y quedan seleccionados para corregir y
+  reintentar.
+- La lista de docentes marca "Ya tiene jornada" a quienes ya tienen una
+  jornada regular en el periodo elegido.
+- Nuevo endpoint `POST /api/v1/horas-administrativas/jornadas/lote`. Sin
+  migraciones.
+
 ### Jornada administrativa semanal y temporal
 
 - En Horas administrativas, la jornada de un docente se registra en un solo

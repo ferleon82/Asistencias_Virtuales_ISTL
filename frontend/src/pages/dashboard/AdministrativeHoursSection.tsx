@@ -12,6 +12,7 @@ import {
   type AdministrativeJornada,
   type HorarioFila,
 } from './administrativeJornadas';
+import { DocentesPicker } from './DocentesPicker';
 import type { DocenteOption, PeriodoAcademicoOption } from './types';
 
 interface AdministrativeRecord {
@@ -19,9 +20,11 @@ interface AdministrativeRecord {
   horario_administrativo: { hora_inicio: string; hora_fin: string; descripcion?: string | null; docente: { nombre: string; apellido: string } };
 }
 interface Props { docentes: DocenteOption[]; periodos: PeriodoAcademicoOption[]; }
+interface ResultadoLote { creadas: Array<{ docente_id: string }>; fallidas: Array<{ docente_id: string; mensaje: string }>; }
 
 interface JornadaForm {
-  docente_id: string;
+  /** Al crear se pueden elegir varios; al editar, la jornada es de un solo docente. */
+  docente_ids: string[];
   periodo_academico_id: string;
   vigencia: 'periodo' | 'rango';
   fecha_inicio: string;
@@ -33,7 +36,7 @@ interface JornadaForm {
 }
 
 const initialForm = (): JornadaForm => ({
-  docente_id: '',
+  docente_ids: [],
   periodo_academico_id: '',
   vigencia: 'periodo',
   fecha_inicio: '',
@@ -56,6 +59,7 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [fallidas, setFallidas] = useState<ResultadoLote['fallidas']>([]);
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const periodosActivos = periodos.filter((item) => item.activo);
@@ -67,6 +71,15 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
     return jornadas.filter((jornada) => `${jornada.principal.docente.apellido} ${jornada.principal.docente.nombre}`.toLowerCase().includes(texto));
   }, [busqueda, jornadas]);
   const totalBloques = form.filas.reduce((total, fila) => total + fila.dias.length, 0);
+  const totalDocentes = form.docente_ids.length;
+  const nombreDocente = (id: string) => {
+    const docente = docentes.find((item) => item.id === id);
+    return docente ? `${docente.apellido} ${docente.nombre}` : 'Docente';
+  };
+  const conJornada = useMemo(
+    () => new Set(bloques.filter((bloque) => !bloque.temporal && bloque.periodo_academico_id === form.periodo_academico_id).map((bloque) => bloque.docente_id)),
+    [bloques, form.periodo_academico_id]
+  );
 
   const load = async () => {
     try {
@@ -94,7 +107,7 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
   };
 
   const validar = (): string => {
-    if (!form.docente_id || !form.periodo_academico_id) return 'Seleccione el docente y el período.';
+    if (totalDocentes === 0 || !form.periodo_academico_id) return 'Seleccione al menos un docente y el período.';
     if (form.filas.length === 0) return 'Agregue al menos un horario.';
     if (form.filas.some((fila) => fila.dias.length === 0)) return 'Cada horario necesita al menos un día marcado.';
     if (form.filas.some((fila) => fila.hora_inicio >= fila.hora_fin)) return 'En cada horario, la hora de inicio debe ser anterior a la de fin.';
@@ -109,6 +122,7 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
     event.preventDefault();
     setError('');
     setMessage('');
+    setFallidas([]);
     const invalido = validar();
     if (invalido) {
       setError(invalido);
@@ -117,7 +131,6 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
     setLoading(true);
     try {
       const payload = {
-        docente_id: form.docente_id,
         periodo_academico_id: form.periodo_academico_id,
         modalidad: form.modalidad,
         ubicacion: form.ubicacion.trim() || undefined,
@@ -125,11 +138,18 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
         ...(form.vigencia === 'rango' ? { fecha_inicio: form.fecha_inicio, fecha_fin: form.fecha_fin } : {}),
         bloques: form.filas.flatMap((fila) => fila.dias.map((dia_semana) => ({ dia_semana, hora_inicio: fila.hora_inicio, hora_fin: fila.hora_fin }))),
       };
-      const { data } = editing
-        ? await api.put(`/horas-administrativas/jornadas/${editing}`, payload)
-        : await api.post('/horas-administrativas/jornadas', payload);
-      setMessage(data.message ?? 'Jornada administrativa guardada.');
-      cancelEdit();
+      if (editing) {
+        const { data } = await api.put(`/horas-administrativas/jornadas/${editing}`, { ...payload, docente_id: form.docente_ids[0] });
+        setMessage(data.message ?? 'Jornada administrativa guardada.');
+        cancelEdit();
+      } else {
+        const { data } = await api.post<{ message?: string; data: ResultadoLote }>('/horas-administrativas/jornadas/lote', { ...payload, docente_ids: form.docente_ids });
+        if (data.data.creadas.length) setMessage(data.message ?? 'Jornadas administrativas registradas.');
+        setFallidas(data.data.fallidas);
+        // Quedan seleccionados solo los docentes que no se pudieron registrar, para corregir y reintentar.
+        if (data.data.fallidas.length) update('docente_ids', data.data.fallidas.map((item) => item.docente_id));
+        else cancelEdit();
+      }
       await load();
     } catch (requestError) {
       setError(getApiMessage(requestError, 'No se pudo guardar la jornada administrativa.'));
@@ -142,9 +162,10 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
     const { principal } = jornada;
     setMessage('');
     setError('');
+    setFallidas([]);
     setEditing(jornada.grupoId);
     setForm({
-      docente_id: principal.docente_id,
+      docente_ids: [principal.docente_id],
       periodo_academico_id: principal.periodo_academico_id,
       vigencia: jornada.temporal ? 'rango' : 'periodo',
       fecha_inicio: jornada.temporal ? principal.fecha_inicio.slice(0, 10) : '',
@@ -185,8 +206,10 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
     <form ref={formRef} onSubmit={(event) => void submit(event)} className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
       <p className="text-sm font-semibold text-slate-700">{editing ? 'Editar jornada administrativa' : 'Nueva jornada administrativa'}</p>
       <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-        <label className="text-sm text-slate-600">Docente<select required value={form.docente_id} onChange={(event) => update('docente_id', event.target.value)} className="input-control"><option value="">Seleccione</option>{docentes.map((item) => <option key={item.id} value={item.id}>{item.apellido} {item.nombre}</option>)}</select></label>
-        <label className="text-sm text-slate-600">Período<select required value={form.periodo_academico_id} onChange={(event) => update('periodo_academico_id', event.target.value)} className="input-control"><option value="">Seleccione</option>{periodosActivos.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
+        {editing
+          ? <label className="text-sm text-slate-600">Docente<select required value={form.docente_ids[0] ?? ''} onChange={(event) => update('docente_ids', [event.target.value])} className="input-control"><option value="">Seleccione</option>{docentes.map((item) => <option key={item.id} value={item.id}>{item.apellido} {item.nombre}</option>)}</select></label>
+          : <div className="text-sm text-slate-600">Docentes{totalDocentes > 0 && <span className="ml-1 font-medium text-istl-700">· {totalDocentes} {totalDocentes === 1 ? 'seleccionado' : 'seleccionados'}</span>}<DocentesPicker docentes={docentes} selected={form.docente_ids} onChange={(ids) => update('docente_ids', ids)} conJornada={conJornada} /></div>}
+        <label className="self-start text-sm text-slate-600">Período<select required value={form.periodo_academico_id} onChange={(event) => update('periodo_academico_id', event.target.value)} className="input-control"><option value="">Seleccione</option>{periodosActivos.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
       </div>
 
       <div className="mt-4">
@@ -233,10 +256,17 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
 
       <p className="mt-4 rounded-md bg-white p-3 text-sm text-slate-600">
         Se {editing ? 'guardarán' : 'crearán'} <strong>{totalBloques} {totalBloques === 1 ? 'bloque' : 'bloques'}</strong> por semana {resumen}
+        {!editing && totalDocentes > 1 && <> Se registrará <strong>una jornada por cada docente</strong> ({totalDocentes} jornadas); luego cada una se edita por separado.</>}
       </p>
+      {fallidas.length > 0 && (
+        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <p className="font-semibold">{fallidas.length} {fallidas.length === 1 ? 'docente no se registró' : 'docentes no se registraron'}. Quedaron seleccionados para corregir y volver a guardar:</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">{fallidas.map((item) => <li key={item.docente_id}><span className="font-medium">{nombreDocente(item.docente_id)}:</span> {item.mensaje}</li>)}</ul>
+        </div>
+      )}
       <div className="mt-3 flex justify-end gap-2">
         {editing && <button type="button" onClick={cancelEdit} className="btn-secondary">Cancelar</button>}
-        <button type="submit" disabled={loading} className="btn-primary">{loading ? 'Guardando...' : editing ? 'Guardar cambios' : 'Guardar jornada'}</button>
+        <button type="submit" disabled={loading} className="btn-primary">{loading ? 'Guardando...' : editing ? 'Guardar cambios' : totalDocentes > 1 ? `Guardar ${totalDocentes} jornadas` : 'Guardar jornada'}</button>
       </div>
     </form>
 

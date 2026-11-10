@@ -56,47 +56,61 @@ const bloqueAdministrativoSchema = z
     path: ['hora_fin'],
   });
 
+const jornadaComunSchema = z.object({
+  periodo_academico_id: z.string().uuid('Período académico requerido'),
+  modalidad: z.nativeEnum(Modalidad).default(Modalidad.presencial),
+  ubicacion: z.string().trim().max(120).optional(),
+  descripcion: z.string().trim().max(500).optional(),
+  fecha_inicio: dateSchema.optional(),
+  fecha_fin: dateSchema.optional(),
+  bloques: z.array(bloqueAdministrativoSchema).min(1, 'Agregue al menos un bloque a la jornada.').max(40),
+});
+
+function validarJornada(data: z.infer<typeof jornadaComunSchema>, ctx: z.RefinementCtx) {
+  if (!!data.fecha_inicio !== !!data.fecha_fin) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fecha_fin'], message: 'Indique la fecha inicial y la final de la jornada temporal.' });
+    return;
+  }
+  if (data.fecha_inicio && data.fecha_fin && data.fecha_fin < data.fecha_inicio) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fecha_fin'], message: 'La fecha final debe ser igual o posterior a la inicial.' });
+    return;
+  }
+  const ordenados = [...data.bloques].sort(
+    (a, b) => DIA_ORDEN[a.dia_semana] - DIA_ORDEN[b.dia_semana] || a.hora_inicio.localeCompare(b.hora_inicio)
+  );
+  for (let i = 1; i < ordenados.length; i += 1) {
+    const anterior = ordenados[i - 1];
+    const actual = ordenados[i];
+    if (anterior.dia_semana === actual.dia_semana && actual.hora_inicio < anterior.hora_fin) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['bloques'],
+        message: `Los bloques del ${actual.dia_semana} ${anterior.hora_inicio}-${anterior.hora_fin} y ${actual.hora_inicio}-${actual.hora_fin} se cruzan.`,
+      });
+      return;
+    }
+  }
+}
+
 /**
  * Todos los bloques semanales de un docente con datos comunes. Sin fechas, la
  * jornada vale todo el período; con fechas es temporal y, en ese rango,
  * reemplaza a la jornada regular del docente.
  */
-export const jornadaAdministrativaSchema = z
-  .object({
-    docente_id: z.string().uuid('Docente requerido'),
-    periodo_academico_id: z.string().uuid('Período académico requerido'),
-    modalidad: z.nativeEnum(Modalidad).default(Modalidad.presencial),
-    ubicacion: z.string().trim().max(120).optional(),
-    descripcion: z.string().trim().max(500).optional(),
-    fecha_inicio: dateSchema.optional(),
-    fecha_fin: dateSchema.optional(),
-    bloques: z.array(bloqueAdministrativoSchema).min(1, 'Agregue al menos un bloque a la jornada.').max(40),
+export const jornadaAdministrativaSchema = jornadaComunSchema
+  .extend({ docente_id: z.string().uuid('Docente requerido') })
+  .superRefine(validarJornada);
+
+/** La misma jornada para varios docentes: se crea una jornada independiente por cada uno. */
+export const jornadasVariosDocentesSchema = jornadaComunSchema
+  .extend({
+    docente_ids: z
+      .array(z.string().uuid('Docente inválido'))
+      .min(1, 'Seleccione al menos un docente.')
+      .max(150, 'Seleccione como máximo 150 docentes a la vez.')
+      .refine((ids) => new Set(ids).size === ids.length, 'Hay docentes repetidos en la selección.'),
   })
-  .superRefine((data, ctx) => {
-    if (!!data.fecha_inicio !== !!data.fecha_fin) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fecha_fin'], message: 'Indique la fecha inicial y la final de la jornada temporal.' });
-      return;
-    }
-    if (data.fecha_inicio && data.fecha_fin && data.fecha_fin < data.fecha_inicio) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fecha_fin'], message: 'La fecha final debe ser igual o posterior a la inicial.' });
-      return;
-    }
-    const ordenados = [...data.bloques].sort(
-      (a, b) => DIA_ORDEN[a.dia_semana] - DIA_ORDEN[b.dia_semana] || a.hora_inicio.localeCompare(b.hora_inicio)
-    );
-    for (let i = 1; i < ordenados.length; i += 1) {
-      const anterior = ordenados[i - 1];
-      const actual = ordenados[i];
-      if (anterior.dia_semana === actual.dia_semana && actual.hora_inicio < anterior.hora_fin) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['bloques'],
-          message: `Los bloques del ${actual.dia_semana} ${anterior.hora_inicio}-${anterior.hora_fin} y ${actual.hora_inicio}-${actual.hora_fin} se cruzan.`,
-        });
-        return;
-      }
-    }
-  });
+  .superRefine(validarJornada);
 
 export const grupoParamsSchema = z.object({
   grupoId: z.string().uuid('ID de jornada inválido'),
@@ -106,5 +120,6 @@ export { locationSchema };
 export type HorarioAdministrativoInput = z.infer<typeof createHorarioAdministrativoSchema>;
 export type HorarioAdministrativoUpdateInput = z.infer<typeof updateHorarioAdministrativoSchema>;
 export type JornadaAdministrativaInput = z.infer<typeof jornadaAdministrativaSchema>;
+export type JornadasVariosDocentesInput = z.infer<typeof jornadasVariosDocentesSchema>;
 export type HorarioAdministrativoQueryInput = z.infer<typeof horarioAdministrativoQuerySchema>;
 export type AdministrativeLocationInput = z.infer<typeof locationSchema>;

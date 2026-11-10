@@ -11,7 +11,7 @@ import { saveAttendancePhoto } from '../../shared/attendance/photo';
 import { getAttendanceSettings, type AttendanceWindows } from '../../shared/attendance/settings';
 import { bloqueActivo, estadoEntrada, marcacionAbiertaVigente, ventanaSalida } from '../../shared/attendance/windows';
 import { bloquesDelDia, formatFecha, jornadaPorHora } from './jornada';
-import type { AdministrativeLocationInput, HorarioAdministrativoInput, HorarioAdministrativoQueryInput, HorarioAdministrativoUpdateInput, JornadaAdministrativaInput } from './horas-administrativas.schemas';
+import type { AdministrativeLocationInput, HorarioAdministrativoInput, HorarioAdministrativoQueryInput, HorarioAdministrativoUpdateInput, JornadaAdministrativaInput, JornadasVariosDocentesInput } from './horas-administrativas.schemas';
 
 interface AuthScope { id: string; rol: string; }
 
@@ -95,6 +95,27 @@ export class HorasAdministrativasService {
   /** Crea una jornada: todos sus bloques o ninguno. */
   async createJornada(data: JornadaAdministrativaInput, user: AuthScope, ip: string) {
     return this.guardarJornada(randomUUID(), data, user, ip, 'CREATE_JORNADA_ADMINISTRATIVA');
+  }
+
+  /**
+   * Crea la misma jornada para varios docentes, una independiente por cada uno.
+   * El guardado es parcial: un docente con cruce no impide registrar a los
+   * demás, y su motivo se devuelve en `fallidas`.
+   */
+  async createJornadas(data: JornadasVariosDocentesInput, user: AuthScope, ip: string) {
+    const { docente_ids, ...jornada } = data;
+    const creadas: Array<{ docente_id: string; grupo_id: string; bloques: number }> = [];
+    const fallidas: Array<{ docente_id: string; mensaje: string }> = [];
+    for (const docente_id of docente_ids) {
+      try {
+        const bloques = await this.createJornada({ ...jornada, docente_id }, user, ip);
+        creadas.push({ docente_id, grupo_id: bloques[0].grupo_id, bloques: bloques.length });
+      } catch (error) {
+        if (!(error instanceof AppError)) throw error;
+        fallidas.push({ docente_id, mensaje: error.message });
+      }
+    }
+    return { creadas, fallidas };
   }
 
   /**

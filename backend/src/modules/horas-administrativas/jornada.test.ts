@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DiaSemana, Jornada } from '@prisma/client';
 import { bloquesDelDia, jornadaPorHora, pausasPorDocente } from './jornada';
-import { jornadaAdministrativaSchema } from './horas-administrativas.schemas';
+import { jornadaAdministrativaSchema, jornadasVariosDocentesSchema } from './horas-administrativas.schemas';
 
 const fecha = (key: string) => new Date(`${key}T00:00:00Z`);
 const regular = { docente_id: 'd1', dia_semana: DiaSemana.lunes, temporal: false, fecha_inicio: fecha('2026-09-01'), fecha_fin: fecha('2027-02-28') };
@@ -51,5 +51,24 @@ describe('jornadaAdministrativaSchema', () => {
   it('rechaza bloques que se cruzan el mismo día', () => {
     const bloques = [...base.bloques, { dia_semana: 'lunes', hora_inicio: '12:00', hora_fin: '15:00' }];
     expect(() => jornadaAdministrativaSchema.parse({ ...base, bloques })).toThrow('se cruzan');
+  });
+});
+
+describe('jornadasVariosDocentesSchema', () => {
+  const base = {
+    periodo_academico_id: '550e8400-e29b-41d4-a716-446655440001',
+    bloques: [{ dia_semana: 'lunes', hora_inicio: '08:00', hora_fin: '13:00' }],
+  };
+  const A = '550e8400-e29b-41d4-a716-446655440000';
+  const B = '550e8400-e29b-41d4-a716-446655440002';
+
+  it('acepta varios docentes con las mismas reglas de la jornada', () => {
+    expect(jornadasVariosDocentesSchema.parse({ ...base, docente_ids: [A, B] }).docente_ids).toEqual([A, B]);
+    expect(() => jornadasVariosDocentesSchema.parse({ ...base, docente_ids: [A], fecha_inicio: '2026-11-09' })).toThrow('Indique la fecha inicial y la final');
+  });
+
+  it('exige al menos un docente y sin repetidos', () => {
+    expect(() => jornadasVariosDocentesSchema.parse({ ...base, docente_ids: [] })).toThrow('al menos un docente');
+    expect(() => jornadasVariosDocentesSchema.parse({ ...base, docente_ids: [A, A] })).toThrow('repetidos');
   });
 });
