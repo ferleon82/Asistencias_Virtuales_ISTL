@@ -47,6 +47,7 @@ const initialForm = (): JornadaForm => ({
   filas: [nuevaFila(['lunes', 'martes', 'miercoles', 'jueves', 'viernes'])],
 });
 
+const REGISTROS_POR_PAGINA = 10;
 const modalidadLabel: Record<string, string> = { presencial: 'Presencial', virtual: 'Virtual', hibrida: 'Híbrida' };
 
 /** Jornadas administrativas semanales por docente; las administran Talento Humano y TICs. */
@@ -56,6 +57,7 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
   const [form, setForm] = useState<JornadaForm>(initialForm);
   const [editing, setEditing] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  const [pagina, setPagina] = useState(0);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -70,6 +72,9 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
     if (!texto) return jornadas;
     return jornadas.filter((jornada) => `${jornada.principal.docente.apellido} ${jornada.principal.docente.nombre}`.toLowerCase().includes(texto));
   }, [busqueda, jornadas]);
+  const totalPaginas = Math.max(1, Math.ceil(records.length / REGISTROS_POR_PAGINA));
+  const paginaActual = Math.min(pagina, totalPaginas - 1);
+  const registrosVisibles = records.slice(paginaActual * REGISTROS_POR_PAGINA, (paginaActual + 1) * REGISTROS_POR_PAGINA);
   const totalBloques = form.filas.reduce((total, fila) => total + fila.dias.length, 0);
   const totalDocentes = form.docente_ids.length;
   const nombreDocente = (id: string) => {
@@ -214,7 +219,7 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
 
       <div className="mt-4">
         <span className="text-sm text-slate-600">Vigencia</span>
-        <div className="mt-1 inline-flex overflow-hidden rounded-md border border-slate-300 bg-white text-sm">
+        <div className="ml-3 mt-1 inline-flex overflow-hidden rounded-md border border-slate-300 bg-white text-sm">
           {([['periodo', 'Todo el período'], ['rango', 'Rango de fechas']] as const).map(([value, label]) => (
             <button key={value} type="button" onClick={() => update('vigencia', value)} className={`px-3 py-1.5 ${form.vigencia === value ? 'bg-istl-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{label}</button>
           ))}
@@ -303,6 +308,17 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
       {visibles.length === 0 && <p className="p-4 text-sm text-slate-500">{busqueda ? 'Ningún docente coincide con la búsqueda.' : 'No hay jornadas administrativas configuradas.'}</p>}
     </div>
 
-    <div className="mt-8"><h3 className="text-sm font-semibold uppercase text-slate-500">Marcaciones administrativas recientes</h3><div className="table-container mt-3"><table className="min-w-[700px] w-full divide-y divide-slate-200 text-sm"><thead><tr className="text-left text-xs uppercase text-slate-500"><th className="py-2 pr-4">Docente</th><th className="py-2 pr-4">Actividad</th><th className="py-2 pr-4">Entrada</th><th className="py-2 pr-4">Salida</th><th className="py-2 pr-4">Estado</th></tr></thead><tbody className="divide-y divide-slate-100">{records.map((record) => <tr key={record.id}><td className="py-2 pr-4">{record.horario_administrativo.docente.apellido} {record.horario_administrativo.docente.nombre}</td><td className="py-2 pr-4">{record.horario_administrativo.descripcion || `${record.horario_administrativo.hora_inicio} - ${record.horario_administrativo.hora_fin}`}</td><td className="py-2 pr-4">{record.timestamp_entrada ? new Date(record.timestamp_entrada).toLocaleString('es-EC') : '-'}</td><td className="py-2 pr-4">{record.timestamp_salida ? new Date(record.timestamp_salida).toLocaleString('es-EC') : 'Pendiente'}</td><td className="py-2 pr-4 capitalize">{record.estado}</td></tr>)}{records.length === 0 && <tr><td colSpan={5} className="py-5 text-slate-500">Aún no hay marcaciones administrativas.</td></tr>}</tbody></table></div></div>
+    <div className="mt-8"><h3 className="text-sm font-semibold uppercase text-slate-500">Marcaciones administrativas recientes</h3><div className="table-container mt-3"><table className="min-w-[700px] w-full divide-y divide-slate-200 text-sm"><thead><tr className="text-left text-xs uppercase text-slate-500"><th className="py-2 pr-4">Docente</th><th className="py-2 pr-4">Actividad</th><th className="py-2 pr-4">Entrada</th><th className="py-2 pr-4">Salida</th><th className="py-2 pr-4">Estado</th></tr></thead><tbody className="divide-y divide-slate-100">{registrosVisibles.map((record) => <tr key={record.id}><td className="py-2 pr-4">{record.horario_administrativo.docente.apellido} {record.horario_administrativo.docente.nombre}</td><td className="py-2 pr-4">{record.horario_administrativo.descripcion || `${record.horario_administrativo.hora_inicio} - ${record.horario_administrativo.hora_fin}`}</td><td className="py-2 pr-4">{record.timestamp_entrada ? new Date(record.timestamp_entrada).toLocaleString('es-EC') : '-'}</td><td className="py-2 pr-4">{record.timestamp_salida ? new Date(record.timestamp_salida).toLocaleString('es-EC') : 'Pendiente'}</td><td className="py-2 pr-4 capitalize">{record.estado}</td></tr>)}{records.length === 0 && <tr><td colSpan={5} className="py-5 text-slate-500">Aún no hay marcaciones administrativas.</td></tr>}</tbody></table></div>
+      {records.length > REGISTROS_POR_PAGINA && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-500">
+          <span>{paginaActual * REGISTROS_POR_PAGINA + 1}–{paginaActual * REGISTROS_POR_PAGINA + registrosVisibles.length} de {records.length} marcaciones</span>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setPagina(paginaActual - 1)} disabled={paginaActual === 0} className="btn-secondary !py-1.5 text-xs disabled:opacity-50">Anterior</button>
+            <span>Página {paginaActual + 1} de {totalPaginas}</span>
+            <button type="button" onClick={() => setPagina(paginaActual + 1)} disabled={paginaActual >= totalPaginas - 1} className="btn-secondary !py-1.5 text-xs disabled:opacity-50">Siguiente</button>
+          </div>
+        </div>
+      )}
+    </div>
   </section>;
 }
