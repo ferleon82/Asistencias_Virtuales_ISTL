@@ -111,6 +111,32 @@ describe('Jornada administrativa (servicio)', () => {
     expect(prisma.horarioAdministrativo.updateMany).toHaveBeenCalledWith({ where: { id: { in: ['viernes'] } }, data: { activo: false } });
   });
 
+  it('crea la jornada de varios docentes y reporta los que tienen cruce sin detener a los demás', async () => {
+    const OTRO = '550e8400-e29b-41d4-a716-446655440003';
+    const TERCERO = '550e8400-e29b-41d4-a716-446655440004';
+    vi.mocked(prisma.horario.findMany).mockImplementation((({ where }: { where: { docente_id: string } }) =>
+      Promise.resolve(where.docente_id === OTRO ? [{ dia_semana: 'lunes', hora_inicio: '09:00', hora_fin: '11:00', materia: { nombre: 'Programación I' } }] : [])) as never);
+    vi.mocked(prisma.horarioAdministrativo.findMany).mockImplementation((({ include }: { include?: unknown }) =>
+      Promise.resolve(include ? [{ grupo_id: 'g' }, { grupo_id: 'g' }] : [])) as never);
+
+    const { docente_id: _omitido, ...comun } = jornada();
+    const result = await service.createJornadas({ ...comun, docente_ids: [DOCENTE, OTRO, TERCERO] }, th, '127.0.0.1');
+
+    expect(result.creadas.map((item) => item.docente_id)).toEqual([DOCENTE, TERCERO]);
+    expect(result.creadas[0]).toMatchObject({ grupo_id: 'g', bloques: 2 });
+    expect(result.fallidas).toEqual([{ docente_id: OTRO, mensaje: 'El bloque del lunes 08:00-13:00 se cruza con la clase de Programación I (09:00-11:00).' }]);
+    // Cada docente recibe su propia jornada (grupo distinto).
+    const grupos = vi.mocked(prisma.horarioAdministrativo.create).mock.calls.map(([arg]) => (arg as { data: { grupo_id: string; docente_id: string } }).data);
+    expect(new Set(grupos.map((fila) => fila.grupo_id)).size).toBe(2);
+    expect(grupos.every((fila) => fila.docente_id !== OTRO)).toBe(true);
+  });
+
+  it('un error inesperado detiene el lote', async () => {
+    vi.mocked(prisma.user.findUnique).mockRejectedValueOnce(new Error('conexión perdida'));
+    const { docente_id: _omitido, ...comun } = jornada();
+    await expect(service.createJornadas({ ...comun, docente_ids: [DOCENTE] }, th, '127.0.0.1')).rejects.toThrow('conexión perdida');
+  });
+
   it('responde 404 al editar o desactivar una jornada inexistente', async () => {
     vi.mocked(prisma.horarioAdministrativo.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.horarioAdministrativo.updateMany).mockResolvedValue({ count: 0 } as never);

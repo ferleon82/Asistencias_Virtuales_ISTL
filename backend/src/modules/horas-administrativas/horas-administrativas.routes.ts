@@ -3,7 +3,7 @@ import { Rol } from '@prisma/client';
 import { authenticate } from '../../shared/utils/jwt';
 import { asistenciaRateLimiter } from '../../shared/middleware/rateLimiter';
 import { roleGuard } from '../../shared/middleware/roleGuard';
-import { createHorarioAdministrativo, createJornadaAdministrativa, deactivateHorarioAdministrativo, deactivateJornadaAdministrativa, updateJornadaAdministrativa, estadoAdministrativoActual, listHorariosAdministrativos, listMisRegistrosAdministrativos, listRegistrosAdministrativos, marcarEntradaAdministrativa, marcarSalidaAdministrativa, updateHorarioAdministrativo } from './horas-administrativas.controller';
+import { createHorarioAdministrativo, createJornadaAdministrativa, createJornadasVariosDocentes, deactivateHorarioAdministrativo, deactivateJornadaAdministrativa, updateJornadaAdministrativa, estadoAdministrativoActual, listHorariosAdministrativos, listMisRegistrosAdministrativos, listRegistrosAdministrativos, marcarEntradaAdministrativa, marcarSalidaAdministrativa, updateHorarioAdministrativo } from './horas-administrativas.controller';
 
 const router: ExpressRouter = Router();
 router.use(authenticate);
@@ -14,6 +14,7 @@ router.get('/mis-registros', roleGuard(Rol.docente), listMisRegistrosAdministrat
 router.get('/registros', roleGuard(Rol.talento_humano, Rol.tics), listRegistrosAdministrativos);
 router.get('/', roleGuard(Rol.docente, Rol.talento_humano, Rol.tics), listHorariosAdministrativos);
 router.post('/jornadas', roleGuard(Rol.talento_humano, Rol.tics), createJornadaAdministrativa);
+router.post('/jornadas/lote', roleGuard(Rol.talento_humano, Rol.tics), createJornadasVariosDocentes);
 router.put('/jornadas/:grupoId', roleGuard(Rol.talento_humano, Rol.tics), updateJornadaAdministrativa);
 router.delete('/jornadas/:grupoId', roleGuard(Rol.talento_humano, Rol.tics), deactivateJornadaAdministrativa);
 router.post('/', roleGuard(Rol.talento_humano, Rol.tics), createHorarioAdministrativo);
