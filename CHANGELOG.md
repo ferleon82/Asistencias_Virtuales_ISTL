@@ -6,6 +6,12 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Marcaciones administrativas paginadas
+
+- En Horas administrativas, las marcaciones recientes se muestran de 10 en
+  10, con **Anterior** y **Siguiente** y el total de marcaciones.
+- Mas espacio entre la etiqueta "Vigencia" y sus opciones.
+
 ### Jornada administrativa para varios docentes
 
 - Al crear una jornada administrativa se pueden marcar varios docentes con
