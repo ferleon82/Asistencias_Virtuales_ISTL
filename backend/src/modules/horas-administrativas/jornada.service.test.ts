@@ -15,6 +15,12 @@ vi.mock('../../config/database', () => {
   return { prisma };
 });
 
+// Hoy: miércoles 11 de noviembre de 2026, a mitad del período (01/09/2026 al 28/02/2027).
+vi.mock('../../shared/attendance/clock', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../shared/attendance/clock')>()),
+  currentTime: vi.fn(() => new Date('2026-11-11T10:00:00-05:00')),
+}));
+
 import { prisma } from '../../config/database';
 import { HorasAdministrativasService } from './horas-administrativas.service';
 import type { JornadaAdministrativaInput } from './horas-administrativas.schemas';
@@ -46,13 +52,31 @@ describe('Jornada administrativa (servicio)', () => {
     vi.mocked(prisma.horarioAdministrativo.findMany).mockResolvedValue([] as never);
   });
 
-  it('crea una jornada regular con las fechas del período y la jornada según la hora', async () => {
+  it('una jornada regular nueva rige desde hoy hasta el fin del período, con la jornada según la hora', async () => {
     await service.createJornada(jornada(), th, '127.0.0.1');
 
     expect(prisma.horarioAdministrativo.create).toHaveBeenCalledTimes(2);
     expect(prisma.horarioAdministrativo.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ dia_semana: 'lunes', temporal: false, jornada: 'matutina', fecha_inicio: fecha('2026-09-01'), fecha_fin: fecha('2027-02-28') }),
+      data: expect.objectContaining({ dia_semana: 'lunes', temporal: false, jornada: 'matutina', fecha_inicio: fecha('2026-11-11'), fecha_fin: fecha('2027-02-28') }),
     });
+  });
+
+  it('respeta "vigente desde" dentro del período y rechaza una fecha fuera de él', async () => {
+    await service.createJornada(jornada({ vigente_desde: '2026-10-14' }), th, '127.0.0.1');
+    expect(prisma.horarioAdministrativo.create).toHaveBeenCalledWith({ data: expect.objectContaining({ fecha_inicio: fecha('2026-10-14') }) });
+
+    await expect(service.createJornada(jornada({ vigente_desde: '2026-08-15' }), th, '127.0.0.1')).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'La fecha "vigente desde" debe estar dentro del período (01/09/2026 al 28/02/2027).',
+    });
+  });
+
+  it('al editar una jornada regular conserva la fecha desde la que ya regía', async () => {
+    vi.mocked(prisma.horarioAdministrativo.findFirst).mockResolvedValue({ id: 'a', temporal: false, periodo_academico_id: PERIODO, fecha_inicio: fecha('2026-10-14') } as never);
+
+    await service.updateJornada(GRUPO, jornada(), th, '127.0.0.1');
+
+    expect(prisma.horarioAdministrativo.create).toHaveBeenCalledWith({ data: expect.objectContaining({ fecha_inicio: fecha('2026-10-14') }) });
   });
 
   it('una jornada temporal guarda sus fechas y no choca con la regular', async () => {

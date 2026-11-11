@@ -6,6 +6,21 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Vigencia de la jornada regular y grafico de cumplimiento
+
+- Una jornada administrativa regular nueva rige desde hoy, no desde el inicio
+  del periodo: registrarla a mitad del periodo ya no cuenta como ausencias los
+  dias anteriores. El formulario agrega **Vigente desde** (por defecto, hoy)
+  para retroactivarla o corregir una jornada existente; al editar se conserva
+  la fecha que ya tenia. La lista muestra "desde dd/mm/aaaa" cuando no rige
+  desde el inicio del periodo.
+- La opcion "Todo el periodo" pasa a llamarse "Regular (hasta fin del
+  periodo)".
+- El grafico "Cumplimiento por periodo" ya no marca 0 % los dias sin bloques
+  programados (fines de semana y feriados).
+- La API acepta `vigente_desde` en `POST/PUT /jornadas` y `/jornadas/lote`.
+  Sin migraciones.
+
 ### Estado de marcacion al dia en el telefono
 
 - El panel del docente recarga el estado de marcacion (clases y horas
