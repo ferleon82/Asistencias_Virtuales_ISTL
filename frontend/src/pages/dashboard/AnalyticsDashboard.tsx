@@ -141,7 +141,9 @@ export function AnalyticsDashboard({
     () =>
       (reportSummary?.porPeriodo ?? []).map((item) => ({
         ...item,
-        cumplimiento: item.programadas ? Math.round((item.presentes / item.programadas) * 100) : 0,
+        // Sin bloques programados (fines de semana, feriados) no hay cumplimiento que medir:
+        // sin punto en vez de 0 %, para que la línea no caiga esos días.
+        cumplimiento: item.programadas ? Math.round((item.presentes / item.programadas) * 100) : null,
       })),
     [reportSummary]
   );
@@ -412,7 +414,7 @@ export function AnalyticsDashboard({
                     <Tooltip />
                     <Legend />
                     <Bar yAxisId="left" dataKey={selectedMetric} name={selectedMetricMeta.label} fill={selectedMetricMeta.color} radius={[4, 4, 0, 0]} />
-                    <Line yAxisId="right" type="monotone" dataKey="cumplimiento" name="Cumplimiento %" stroke={COLORS.cumplimiento} strokeWidth={3} dot={{ r: 3 }} />
+                    <Line yAxisId="right" type="monotone" dataKey="cumplimiento" name="Cumplimiento %" stroke={COLORS.cumplimiento} strokeWidth={3} dot={{ r: 3 }} connectNulls />
                   </ComposedChart>
                 )}
               </ResponsiveContainer>
@@ -505,7 +507,7 @@ export function AnalyticsDashboard({
               <Tooltip />
               <Legend />
               <Bar yAxisId="left" dataKey="programadas" name="Programadas" fill={COLORS.programadas} radius={[4, 4, 0, 0]} />
-              <Line yAxisId="right" type="monotone" dataKey="cumplimiento" name="Cumplimiento %" stroke={COLORS.cumplimiento} strokeWidth={3} dot={{ r: 3 }} />
+              <Line yAxisId="right" type="monotone" dataKey="cumplimiento" name="Cumplimiento %" stroke={COLORS.cumplimiento} strokeWidth={3} dot={{ r: 3 }} connectNulls />
             </ComposedChart>
           </ResponsiveContainer>
           </div>

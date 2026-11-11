@@ -7,6 +7,7 @@ import {
   diasTexto,
   filasDeBloques,
   formatFecha,
+  hoyEcuador,
   nuevaFila,
   type AdministrativeBlock,
   type AdministrativeJornada,
@@ -29,6 +30,8 @@ interface JornadaForm {
   vigencia: 'periodo' | 'rango';
   fecha_inicio: string;
   fecha_fin: string;
+  /** Jornada regular: desde qué día rige (por defecto, hoy). */
+  vigente_desde: string;
   modalidad: string;
   ubicacion: string;
   descripcion: string;
@@ -41,6 +44,7 @@ const initialForm = (): JornadaForm => ({
   vigencia: 'periodo',
   fecha_inicio: '',
   fecha_fin: '',
+  vigente_desde: hoyEcuador(),
   modalidad: 'presencial',
   ubicacion: '',
   descripcion: '',
@@ -75,6 +79,7 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
   const totalPaginas = Math.max(1, Math.ceil(records.length / REGISTROS_POR_PAGINA));
   const paginaActual = Math.min(pagina, totalPaginas - 1);
   const registrosVisibles = records.slice(paginaActual * REGISTROS_POR_PAGINA, (paginaActual + 1) * REGISTROS_POR_PAGINA);
+  const inicioPeriodo = (bloque: AdministrativeBlock) => periodos.find((item) => item.id === bloque.periodo_academico_id)?.fecha_inicio.slice(0, 10);
   const totalBloques = form.filas.reduce((total, fila) => total + fila.dias.length, 0);
   const totalDocentes = form.docente_ids.length;
   const nombreDocente = (id: string) => {
@@ -116,6 +121,12 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
     if (form.filas.length === 0) return 'Agregue al menos un horario.';
     if (form.filas.some((fila) => fila.dias.length === 0)) return 'Cada horario necesita al menos un día marcado.';
     if (form.filas.some((fila) => fila.hora_inicio >= fila.hora_fin)) return 'En cada horario, la hora de inicio debe ser anterior a la de fin.';
+    if (form.vigencia === 'periodo' && periodo) {
+      if (!form.vigente_desde) return 'Indique desde qué fecha rige la jornada.';
+      if (form.vigente_desde < periodo.fecha_inicio.slice(0, 10) || form.vigente_desde > periodo.fecha_fin.slice(0, 10)) {
+        return `La fecha "vigente desde" debe estar dentro del período (${formatFecha(periodo.fecha_inicio)} al ${formatFecha(periodo.fecha_fin)}).`;
+      }
+    }
     if (form.vigencia === 'rango') {
       if (!form.fecha_inicio || !form.fecha_fin) return 'Indique las fechas de la jornada temporal.';
       if (form.fecha_fin < form.fecha_inicio) return 'La fecha final debe ser igual o posterior a la inicial.';
@@ -140,7 +151,7 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
         modalidad: form.modalidad,
         ubicacion: form.ubicacion.trim() || undefined,
         descripcion: form.descripcion.trim() || undefined,
-        ...(form.vigencia === 'rango' ? { fecha_inicio: form.fecha_inicio, fecha_fin: form.fecha_fin } : {}),
+        ...(form.vigencia === 'rango' ? { fecha_inicio: form.fecha_inicio, fecha_fin: form.fecha_fin } : { vigente_desde: form.vigente_desde }),
         bloques: form.filas.flatMap((fila) => fila.dias.map((dia_semana) => ({ dia_semana, hora_inicio: fila.hora_inicio, hora_fin: fila.hora_fin }))),
       };
       if (editing) {
@@ -174,6 +185,7 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
       periodo_academico_id: principal.periodo_academico_id,
       vigencia: jornada.temporal ? 'rango' : 'periodo',
       fecha_inicio: jornada.temporal ? principal.fecha_inicio.slice(0, 10) : '',
+      vigente_desde: jornada.temporal ? hoyEcuador() : principal.fecha_inicio.slice(0, 10),
       fecha_fin: jornada.temporal ? principal.fecha_fin.slice(0, 10) : '',
       modalidad: principal.modalidad,
       ubicacion: principal.ubicacion ?? '',
@@ -201,7 +213,9 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
   const resumen =
     form.vigencia === 'rango' && form.fecha_inicio && form.fecha_fin
       ? `del ${formatFecha(form.fecha_inicio)} al ${formatFecha(form.fecha_fin)}. En esas fechas reemplaza su jornada regular, que vuelve sola al terminar.`
-      : 'durante todo el período.';
+      : form.vigente_desde
+        ? `desde el ${formatFecha(form.vigente_desde)} hasta el fin del período${periodo ? ` (${formatFecha(periodo.fecha_fin)})` : ''}. Los días anteriores no cuentan como ausencias.`
+        : 'hasta el fin del período.';
 
   return <section className="dashboard-section">
     <div><h2 className="section-title">Horas administrativas</h2><p className="section-subtitle">Configure la jornada semanal no académica de cada docente. La administran Talento Humano y TICs.</p></div>
@@ -220,10 +234,16 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
       <div className="mt-4">
         <span className="text-sm text-slate-600">Vigencia</span>
         <div className="ml-3 mt-1 inline-flex overflow-hidden rounded-md border border-slate-300 bg-white text-sm">
-          {([['periodo', 'Todo el período'], ['rango', 'Rango de fechas']] as const).map(([value, label]) => (
+          {([['periodo', 'Regular (hasta fin del período)'], ['rango', 'Rango de fechas']] as const).map(([value, label]) => (
             <button key={value} type="button" onClick={() => update('vigencia', value)} className={`px-3 py-1.5 ${form.vigencia === value ? 'bg-istl-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{label}</button>
           ))}
         </div>
+        {form.vigencia === 'periodo' && (
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label className="text-sm text-slate-600">Vigente desde<input type="date" value={form.vigente_desde} min={periodo?.fecha_inicio.slice(0, 10)} max={periodo?.fecha_fin.slice(0, 10)} onChange={(event) => update('vigente_desde', event.target.value)} className="input-control" /></label>
+            <p className="self-end pb-2 text-xs text-slate-500">Por defecto, hoy. Use una fecha anterior solo si el docente ya debía cumplir esta jornada desde entonces.</p>
+          </div>
+        )}
         {form.vigencia === 'rango' && (
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-sm text-slate-600">Desde<input type="date" value={form.fecha_inicio} min={periodo?.fecha_inicio.slice(0, 10)} max={periodo?.fecha_fin.slice(0, 10)} onChange={(event) => update('fecha_inicio', event.target.value)} className="input-control" /></label>
@@ -289,7 +309,7 @@ export function AdministrativeHoursSection({ docentes, periodos }: Props) {
                 <span className="text-sm font-semibold text-slate-700">{principal.docente.apellido} {principal.docente.nombre}</span>
                 {jornada.temporal
                   ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Temporal {formatFecha(principal.fecha_inicio)} al {formatFecha(principal.fecha_fin)}</span>
-                  : <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{principal.periodo_academico.nombre}</span>}
+                  : <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{principal.periodo_academico.nombre}{inicioPeriodo(principal) !== principal.fecha_inicio.slice(0, 10) && ` · desde ${formatFecha(principal.fecha_inicio)}`}</span>}
                 <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs text-istl-700">{modalidadLabel[principal.modalidad] ?? principal.modalidad}</span>
               </div>
               <p className="mt-1 text-sm text-slate-600">{jornada.filas.map((fila) => `${diasTexto(fila.dias)} ${fila.hora_inicio}–${fila.hora_fin}`).join(' · ')}</p>

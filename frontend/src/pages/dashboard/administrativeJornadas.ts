@@ -86,6 +86,11 @@ export function diasTexto(dias: string[]): string {
   return indices.map((index) => DIAS[index].nombre).join(', ');
 }
 
+/** Fecha de hoy en Ecuador como `YYYY-MM-DD`. */
+export function hoyEcuador(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guayaquil' });
+}
+
 /** `dd/mm/yyyy` de una fecha ISO o `YYYY-MM-DD`. */
 export function formatFecha(fecha: string): string {
   return fecha.slice(0, 10).split('-').reverse().join('/');
