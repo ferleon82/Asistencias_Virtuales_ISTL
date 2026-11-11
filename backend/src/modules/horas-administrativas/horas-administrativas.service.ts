@@ -28,6 +28,17 @@ const DIA_LABEL: Record<DiaSemana, string> = { lunes: 'lunes', martes: 'martes',
 const bloqueKey = (bloque: { dia_semana: string; hora_inicio: string; hora_fin: string }) => `${bloque.dia_semana}|${bloque.hora_inicio}|${bloque.hora_fin}`;
 const dbDate = (key: string) => new Date(`${key}T00:00:00Z`);
 
+/**
+ * Una jornada regular nueva rige desde hoy, dentro del período: registrarla a
+ * mitad del período no debe contar como ausencias los días anteriores.
+ */
+function inicioRegularPorDefecto(periodo: { fecha_inicio: Date; fecha_fin: Date }, now: Date = currentTime()): Date {
+  const hoy = ecuadorDbDate(now);
+  if (hoy < periodo.fecha_inicio) return periodo.fecha_inicio;
+  if (hoy > periodo.fecha_fin) return periodo.fecha_inicio;
+  return hoy;
+}
+
 export class HorasAdministrativasService {
   async list(filters: HorarioAdministrativoQueryInput, user: AuthScope) {
     if (filters.hoy) {
@@ -124,9 +135,11 @@ export class HorasAdministrativasService {
    * marcaciones; los quitados se desactivan, nunca se borran.
    */
   async updateJornada(grupoId: string, data: JornadaAdministrativaInput, user: AuthScope, ip: string) {
-    const existe = await prisma.horarioAdministrativo.findFirst({ where: { grupo_id: grupoId, activo: true }, select: { id: true } });
+    const existe = await prisma.horarioAdministrativo.findFirst({ where: { grupo_id: grupoId, activo: true }, select: { id: true, temporal: true, periodo_academico_id: true, fecha_inicio: true }, orderBy: { fecha_inicio: 'asc' } });
     if (!existe) throw new AppError('Jornada administrativa no encontrada.', 404);
-    return this.guardarJornada(grupoId, data, user, ip, 'UPDATE_JORNADA_ADMINISTRATIVA');
+    // Una jornada regular editada sigue rigiendo desde la fecha que ya tenía, salvo que se indique otra.
+    const inicioActual = !existe.temporal && existe.periodo_academico_id === data.periodo_academico_id ? existe.fecha_inicio : undefined;
+    return this.guardarJornada(grupoId, data, user, ip, 'UPDATE_JORNADA_ADMINISTRATIVA', inicioActual);
   }
 
   async deactivateJornada(grupoId: string, user: AuthScope, ip: string) {
@@ -211,14 +224,19 @@ export class HorasAdministrativasService {
     return bloquesDelDia(vigentes, dia);
   }
 
-  private async guardarJornada(grupoId: string, data: JornadaAdministrativaInput, user: AuthScope, ip: string, accion: string) {
+  private async guardarJornada(grupoId: string, data: JornadaAdministrativaInput, user: AuthScope, ip: string, accion: string, inicioActual?: Date) {
     await this.assertDocente(data.docente_id);
     const periodo = await this.assertPeriodo(data.periodo_academico_id);
     const temporal = !!data.fecha_inicio;
-    const fecha_inicio = data.fecha_inicio ? dbDate(data.fecha_inicio) : periodo.fecha_inicio;
+    const fecha_inicio = data.fecha_inicio
+      ? dbDate(data.fecha_inicio)
+      : data.vigente_desde ? dbDate(data.vigente_desde) : inicioActual ?? inicioRegularPorDefecto(periodo);
     const fecha_fin = data.fecha_fin ? dbDate(data.fecha_fin) : periodo.fecha_fin;
     if (temporal && (fecha_inicio < periodo.fecha_inicio || fecha_fin > periodo.fecha_fin)) {
       throw new AppError(`Las fechas de la jornada temporal deben estar dentro del período (${formatFecha(periodo.fecha_inicio)} al ${formatFecha(periodo.fecha_fin)}).`, 400);
+    }
+    if (!temporal && data.vigente_desde && (fecha_inicio < periodo.fecha_inicio || fecha_inicio > periodo.fecha_fin)) {
+      throw new AppError(`La fecha "vigente desde" debe estar dentro del período (${formatFecha(periodo.fecha_inicio)} al ${formatFecha(periodo.fecha_fin)}).`, 400);
     }
     const comunes = { docente_id: data.docente_id, periodo_academico_id: data.periodo_academico_id, modalidad: data.modalidad, ubicacion: data.ubicacion || null, descripcion: data.descripcion || null, fecha_inicio, fecha_fin, temporal, grupo_id: grupoId };
 

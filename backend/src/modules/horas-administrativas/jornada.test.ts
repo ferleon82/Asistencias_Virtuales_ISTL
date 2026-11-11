@@ -48,6 +48,11 @@ describe('jornadaAdministrativaSchema', () => {
     expect(() => jornadaAdministrativaSchema.parse({ ...base, fecha_inicio: '2026-11-20', fecha_fin: '2026-11-09' })).toThrow('posterior a la inicial');
   });
 
+  it('"vigente desde" es solo para la jornada regular', () => {
+    expect(jornadaAdministrativaSchema.parse({ ...base, vigente_desde: '2026-10-14' }).vigente_desde).toBe('2026-10-14');
+    expect(() => jornadaAdministrativaSchema.parse({ ...base, vigente_desde: '2026-10-14', fecha_inicio: '2026-11-09', fecha_fin: '2026-11-20' })).toThrow('solo para la jornada regular');
+  });
+
   it('rechaza bloques que se cruzan el mismo día', () => {
     const bloques = [...base.bloques, { dia_semana: 'lunes', hora_inicio: '12:00', hora_fin: '15:00' }];
     expect(() => jornadaAdministrativaSchema.parse({ ...base, bloques })).toThrow('se cruzan');

@@ -63,10 +63,16 @@ const jornadaComunSchema = z.object({
   descripcion: z.string().trim().max(500).optional(),
   fecha_inicio: dateSchema.optional(),
   fecha_fin: dateSchema.optional(),
+  /** Jornada regular: desde qué día rige. Sin indicarlo, desde hoy (o desde que ya regía, al editar). */
+  vigente_desde: dateSchema.optional(),
   bloques: z.array(bloqueAdministrativoSchema).min(1, 'Agregue al menos un bloque a la jornada.').max(40),
 });
 
 function validarJornada(data: z.infer<typeof jornadaComunSchema>, ctx: z.RefinementCtx) {
+  if (data.vigente_desde && data.fecha_inicio) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['vigente_desde'], message: 'Una jornada temporal usa sus fechas; "vigente desde" es solo para la jornada regular.' });
+    return;
+  }
   if (!!data.fecha_inicio !== !!data.fecha_fin) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fecha_fin'], message: 'Indique la fecha inicial y la final de la jornada temporal.' });
     return;
