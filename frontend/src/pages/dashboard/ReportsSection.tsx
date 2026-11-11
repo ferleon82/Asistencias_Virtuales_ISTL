@@ -202,6 +202,7 @@ export function ReportsSection({
               {['puntual', 'tardanza', 'ausente', 'justificado'].map((estado) => (
                 <option key={estado} value={estado}>{estado}</option>
               ))}
+              <option value="sin_salida">sin salida</option>
             </select>
           </label>}
           {!isAdministrativeReport && <label className="min-w-0 text-sm text-slate-600">
@@ -244,16 +245,17 @@ export function ReportsSection({
         </div>
       )}
 
-      <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-5">
         {[
           { label: 'Registros', value: reportSummary?.totalRegistros ?? 0 },
           { label: 'Puntuales', value: reportSummary?.puntual ?? 0 },
           { label: 'Tardanzas', value: reportSummary?.tardanza ?? 0 },
           { label: 'Justificados', value: reportSummary?.justificado ?? 0 },
+          { label: 'Sin salida', value: reportSummary?.sin_salida ?? 0, alerta: true },
         ].map((item) => (
-          <div key={item.label} className="rounded-md bg-slate-50 border border-slate-100 p-3">
-            <p className="text-xs text-slate-500">{item.label}</p>
-            <p className="mt-1 text-xl font-bold text-brand-navy">{item.value}</p>
+          <div key={item.label} className={`rounded-md border p-3 ${item.alerta && item.value > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-slate-50'}`}>
+            <p className={`text-xs ${item.alerta && item.value > 0 ? 'text-amber-700' : 'text-slate-500'}`}>{item.label}</p>
+            <p className={`mt-1 text-xl font-bold ${item.alerta && item.value > 0 ? 'text-amber-800' : 'text-brand-navy'}`}>{item.value}</p>
           </div>
         ))}
       </div>
@@ -317,9 +319,16 @@ export function ReportsSection({
                 <td className="py-2 pr-4 text-slate-500">{registro.entrada || '-'}</td>
                 <td className="py-2 pr-4 text-slate-500">{registro.salida || '-'}</td>
                 <td className="py-2 pr-4">
-                  <span className="rounded-full bg-istl-50 px-2 py-0.5 text-xs text-brand-navy">
-                    {registro.estado}
-                  </span>
+                  <div className="flex flex-col items-start gap-1">
+                    <span className="rounded-full bg-istl-50 px-2 py-0.5 text-xs text-brand-navy">
+                      {registro.estado}
+                    </span>
+                    {registro.sin_salida && (
+                      <span className="whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700" title="Marcó entrada pero no salida, y el plazo para marcarla terminó.">
+                        sin salida
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="py-2 pr-4">
                   <LocationLink lat={registro.lat_entrada ?? registro.lat} lng={registro.lng_entrada ?? registro.lng} precision={registro.precision_entrada_m ?? registro.precision_m} />

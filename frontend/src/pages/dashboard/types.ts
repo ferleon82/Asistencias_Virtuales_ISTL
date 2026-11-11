@@ -52,6 +52,8 @@ export interface ReportSummary {
   tardanza: number;
   ausente: number;
   justificado: number;
+  /** Registros con entrada cuya ventana de salida terminó sin marcarla. */
+  sin_salida?: number;
   registros?: ReportRow[];
   porCarrera?: ReportCareerSummary[];
   porPeriodo?: ReportPeriodSummary[];
@@ -94,6 +96,7 @@ export interface ReportRow {
   entrada: string;
   salida: string;
   estado: string;
+  sin_salida?: boolean;
   justificacion: string;
   ip_entrada: string;
   lat?: number | string | null;
