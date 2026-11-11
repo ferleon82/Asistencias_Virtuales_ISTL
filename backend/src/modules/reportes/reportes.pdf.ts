@@ -1,5 +1,5 @@
 import PDFDocument from 'pdfkit';
-import { formatDateTime, formatLocation, googleMapsUrl } from './reportes.format';
+import { estadoTexto, formatDateTime, formatLocation, googleMapsUrl } from './reportes.format';
 import type { ReportRow, ReportSummaryData } from './reportes.types';
 
 /**
@@ -84,11 +84,12 @@ function drawSummaryCards(document: PDFKit.PDFDocument, data: ReportSummaryData)
     ['Tardanzas', data.tardanza],
     ['Ausentes', data.ausente],
     ['Justificados', data.justificado],
+    ['Sin salida', data.sin_salida],
   ];
   const startX = 40;
   const startY = 126;
   const gap = 8;
-  const width = 68;
+  const width = (document.page.width - 80 - gap * (cards.length - 1)) / cards.length;
   const height = 44;
 
   cards.forEach(([label, value], index) => {
@@ -134,7 +135,7 @@ function drawReportRow(document: PDFKit.PDFDocument, row: ReportRow, y: number, 
     .text(row.horario, 252, y + 6, { width: 68 })
     .text(row.entrada || '-', 324, y + 6, { width: 70 })
     .text(row.salida || '-', 396, y + 6, { width: 58 })
-    .text(row.estado, 456, y + 6, { width: 48 })
+    .text(estadoTexto(row), 456, y + 6, { width: 48 })
     .text(formatLocation(row), 506, y + 6, { width: 48, height: 18 });
 
   if (mapUrl) {

@@ -19,6 +19,7 @@ export async function renderReportExcel(data: ReportSummaryData): Promise<Buffer
     { indicador: 'Tardanzas', valor: data.tardanza },
     { indicador: 'Ausentes', valor: data.ausente },
     { indicador: 'Justificados', valor: data.justificado },
+    { indicador: 'Sin salida', valor: data.sin_salida },
   ]);
 
   const registrosSheet = workbook.addWorksheet('Registros');
@@ -35,6 +36,7 @@ export async function renderReportExcel(data: ReportSummaryData): Promise<Buffer
     { header: 'Entrada', key: 'entrada', width: 20 },
     { header: 'Salida', key: 'salida', width: 20 },
     { header: 'Estado', key: 'estado', width: 14 },
+    { header: 'Sin salida', key: 'sin_salida', width: 12 },
     { header: 'Justificación', key: 'justificacion', width: 36 },
     { header: 'IP entrada', key: 'ip_entrada', width: 18 },
     { header: 'Foto entrada', key: 'foto_entrada_url', width: 34 },
@@ -46,7 +48,7 @@ export async function renderReportExcel(data: ReportSummaryData): Promise<Buffer
     { header: 'Longitud salida', key: 'lng_salida', width: 16 },
     { header: 'Precisión salida m', key: 'precision_salida_m', width: 18 },
   ];
-  registrosSheet.addRows(data.registros);
+  registrosSheet.addRows(data.registros.map((row) => ({ ...row, sin_salida: row.sin_salida ? 'Sí' : '' })));
 
   [resumenSheet, registrosSheet].forEach((sheet) => {
     sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };

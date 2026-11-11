@@ -2,6 +2,7 @@ import { Rol } from '@prisma/client';
 import { AppError } from '../../shared/middleware/errorHandler';
 import { getFechasNoLaborables } from '../../shared/attendance/calendar';
 import { currentTime } from '../../shared/attendance/clock';
+import { getAttendanceSettings } from '../../shared/attendance/settings';
 import { PHOTO_URL_EXPORT_TTL_SECONDS, PHOTO_URL_TTL_SECONDS, withSignedPhotos } from '../../shared/attendance/photoUrls';
 import { pausasPorDocente } from '../horas-administrativas/jornada';
 import { renderReportExcel } from './reportes.excel';
@@ -11,8 +12,10 @@ import {
   fetchHorariosProgramados,
   fetchRegistros,
   fetchRegistrosAdministrativos,
+  estadoWhere,
   filterHorarioWhere,
   filterWhere,
+  quedoSinSalida,
   resolveRange,
   roleHorarioWhere,
   roleWhere,
@@ -20,7 +23,7 @@ import {
   toAdministrativeRows,
   toRows,
 } from './reportes.query';
-import type { ReporteQueryInput } from './reportes.schemas';
+import { ESTADO_SIN_SALIDA, type ReporteQueryInput } from './reportes.schemas';
 import { buildAttendanceSummary, type AttendanceMark, type ScheduleSlot } from './reportes.sessions';
 import type { ReportRow, ReportScope as AuthScope, ReportSummaryData } from './reportes.types';
 
@@ -50,10 +53,15 @@ export class ReportesService {
   private async resumenDocente(filters: ReporteQueryInput, user: AuthScope): Promise<ReportSummaryData> {
     const scoped = scopedFilters(filters, user);
     const { from, to } = await resolveRange(scoped);
-    const [registros, horariosProgramados] = await Promise.all([
+    const [encontrados, horariosProgramados, { windows }] = await Promise.all([
       fetchRegistros({ AND: [roleWhere(user), filterWhere(scoped, from, to)] }),
       fetchHorariosProgramados({ AND: [roleHorarioWhere(user), filterHorarioWhere(scoped, from, to)] }),
+      getAttendanceSettings(),
     ]);
+    const cierre = { now: currentTime(), windows };
+    const registros = scoped.estado === ESTADO_SIN_SALIDA
+      ? encontrados.filter((registro) => quedoSinSalida(registro, registro.horario.hora_fin, cierre))
+      : encontrados;
 
     const slots: ScheduleSlot[] = horariosProgramados.map((horario) => ({
       id: horario.id,
@@ -72,8 +80,8 @@ export class ReportesService {
     }));
 
     const noLaborables = await getFechasNoLaborables(from, to);
-    const summary = buildAttendanceSummary({ from, to, now: currentTime(), slots, marks, noLaborables });
-    return this.toSummaryData('docente', from, to, summary, toRows(registros));
+    const summary = buildAttendanceSummary({ from, to, now: cierre.now, slots, marks, noLaborables });
+    return this.toSummaryData('docente', from, to, summary, toRows(registros, cierre));
   }
 
   private async resumenAdministrativa(filters: ReporteQueryInput, user: AuthScope): Promise<ReportSummaryData> {
@@ -84,10 +92,10 @@ export class ReportesService {
     }
     const scoped = scopedFilters(filters, user);
     const { from, to } = await resolveRange(scoped);
-    const [registros, horarios] = await Promise.all([
+    const [encontrados, horarios, { windows }] = await Promise.all([
       fetchRegistrosAdministrativos({
         docente_id: scoped.docente_id,
-        estado: scoped.estado,
+        ...estadoWhere(scoped.estado),
         timestamp_entrada: { gte: from, lte: to },
         horario_administrativo: scoped.periodo_academico_id ? { periodo_academico_id: scoped.periodo_academico_id } : undefined,
       }),
@@ -98,7 +106,12 @@ export class ReportesService {
         fecha_inicio: { lte: to },
         fecha_fin: { gte: from },
       }),
+      getAttendanceSettings(),
     ]);
+    const cierre = { now: currentTime(), windows };
+    const registros = scoped.estado === ESTADO_SIN_SALIDA
+      ? encontrados.filter((registro) => quedoSinSalida(registro, registro.horario_administrativo.hora_fin, cierre))
+      : encontrados;
 
     // En la jornada administrativa el desglose natural es por docente (en clases, por carrera).
     // Una jornada temporal pausa la regular del docente en sus fechas.
@@ -120,9 +133,9 @@ export class ReportesService {
       created_at: registro.created_at,
     }));
     const noLaborables = await getFechasNoLaborables(from, to);
-    const summary = buildAttendanceSummary({ from, to, now: currentTime(), slots, marks, noLaborables });
+    const summary = buildAttendanceSummary({ from, to, now: cierre.now, slots, marks, noLaborables });
 
-    return this.toSummaryData('administrativa', from, to, summary, toAdministrativeRows(registros));
+    return this.toSummaryData('administrativa', from, to, summary, toAdministrativeRows(registros, cierre));
   }
 
   private toSummaryData(
@@ -142,6 +155,7 @@ export class ReportesService {
       tardanza: summary.totals.tardanza,
       justificado: summary.totals.justificado,
       ausente: summary.totals.ausente,
+      sin_salida: registros.filter((registro) => registro.sin_salida).length,
       registros,
       porCarrera: summary.porGrupo,
       porPeriodo: summary.porDia,

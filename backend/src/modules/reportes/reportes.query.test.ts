@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Rol } from '@prisma/client';
+import { EstadoAsistencia, Rol } from '@prisma/client';
 
 vi.mock('../../config/database', () => ({
   prisma: { periodoAcademico: { findUnique: vi.fn() } },
 }));
 
 import { prisma } from '../../config/database';
-import { filterWhere, resolveRange, scopedFilters } from './reportes.query';
+import { estadoWhere, filterWhere, quedoSinSalida, resolveRange, scopedFilters } from './reportes.query';
 
 const now = new Date('2026-10-09T21:30:00-05:00'); // en UTC ya es 10 de octubre
 const iso = (date: Date) => date.toISOString();
@@ -67,5 +67,28 @@ describe('filtros por rol', () => {
       { timestamp_entrada: { gte: from, lte: to } },
       { timestamp_entrada: null, created_at: { gte: from, lte: to } },
     ]);
+  });
+});
+
+describe('marcaciones sin salida', () => {
+  const windows = { entryBeforeMinutes: 15, entryAfterMinutes: 15, exitBeforeMinutes: 10, exitAfterMinutes: 15 };
+  const abierta = { timestamp_entrada: new Date('2026-11-10T20:50:00-05:00'), timestamp_salida: null, estado: EstadoAsistencia.puntual };
+  const at = (hora: string) => ({ now: new Date(`2026-11-10T${hora}:00-05:00`), windows });
+
+  it('queda sin salida solo cuando termina la ventana de salida', () => {
+    expect(quedoSinSalida(abierta, '22:00', at('22:15'))).toBe(false);
+    expect(quedoSinSalida(abierta, '22:00', at('22:16'))).toBe(true);
+  });
+
+  it('no aplica si marcó salida, no tiene entrada o tiene justificación aprobada', () => {
+    const tarde = at('23:30');
+    expect(quedoSinSalida({ ...abierta, timestamp_salida: new Date('2026-11-10T22:01:00-05:00') }, '22:00', tarde)).toBe(false);
+    expect(quedoSinSalida({ ...abierta, timestamp_entrada: null }, '22:00', tarde)).toBe(false);
+    expect(quedoSinSalida({ ...abierta, estado: EstadoAsistencia.justificado }, '22:00', tarde)).toBe(false);
+  });
+
+  it('el filtro "sin_salida" busca marcaciones abiertas no justificadas', () => {
+    expect(estadoWhere('sin_salida')).toEqual({ estado: { not: EstadoAsistencia.justificado }, timestamp_salida: null, NOT: { timestamp_entrada: null } });
+    expect(estadoWhere(EstadoAsistencia.tardanza)).toEqual({ estado: EstadoAsistencia.tardanza });
   });
 });

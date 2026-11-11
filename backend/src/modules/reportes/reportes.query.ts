@@ -1,8 +1,10 @@
-import { Prisma, Rol } from '@prisma/client';
+import { EstadoAsistencia, Prisma, Rol } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { currentTime, dateOnlyKey, ecuadorDayRange, ecuadorDayRangeOfKey } from '../../shared/attendance/clock';
+import type { AttendanceWindows } from '../../shared/attendance/settings';
+import { ventanaSalida } from '../../shared/attendance/windows';
 import { formatDateTime } from './reportes.format';
-import type { ReporteQueryInput } from './reportes.schemas';
+import { ESTADO_SIN_SALIDA, type ReporteQueryInput } from './reportes.schemas';
 import type { ReportRow, ReportScope } from './reportes.types';
 
 // Consultas y mapeo de filas de los reportes. El cálculo de sesiones vive en
@@ -44,6 +46,37 @@ const administrativaInclude = {
   docente: { select: { id: true, nombre: true, apellido: true, email: true } },
   horario_administrativo: { include: { periodo_academico: true } },
 } satisfies Prisma.RegistroAdministrativoInclude;
+
+/** Contexto para saber si una marcación abierta ya no puede cerrarse. */
+export interface CierreSalida {
+  now: Date;
+  windows: AttendanceWindows;
+}
+
+/**
+ * La marcación tiene entrada pero no salida, y su ventana de salida ya terminó.
+ * Con una justificación aprobada (estado `justificado`) no se considera falta.
+ */
+export function quedoSinSalida(
+  registro: { timestamp_entrada: Date | null; timestamp_salida: Date | null; estado: EstadoAsistencia },
+  horaFin: string,
+  { now, windows }: CierreSalida
+): boolean {
+  if (!registro.timestamp_entrada || registro.timestamp_salida || registro.estado === EstadoAsistencia.justificado) return false;
+  return now > ventanaSalida(registro.timestamp_entrada, horaFin, windows).hasta;
+}
+
+/**
+ * Condición de base de datos para el filtro de estado. `sin_salida` trae las
+ * marcaciones abiertas; las que todavía pueden cerrarse se descartan después
+ * con `quedoSinSalida`.
+ */
+export function estadoWhere(estado: ReporteQueryInput['estado']) {
+  if (estado === ESTADO_SIN_SALIDA) {
+    return { estado: { not: EstadoAsistencia.justificado }, timestamp_salida: null, NOT: { timestamp_entrada: null } };
+  }
+  return { estado };
+}
 
 export interface ReportRange {
   from: Date;
@@ -133,7 +166,7 @@ export function filterWhere(filters: ReporteQueryInput, from: Date, to: Date): P
 
   return {
     docente_id: filters.docente_id,
-    estado: filters.estado,
+    ...estadoWhere(filters.estado),
     // Las justificaciones sin marcación no tienen hora de entrada: se ubican por fecha de creación.
     OR: [
       { timestamp_entrada: { gte: from, lte: to } },
@@ -174,7 +207,7 @@ export function filterHorarioWhere(filters: ReporteQueryInput, from: Date, to: D
   };
 }
 
-export function toRows(registros: Awaited<ReturnType<typeof fetchRegistros>>): ReportRow[] {
+export function toRows(registros: Awaited<ReturnType<typeof fetchRegistros>>, cierre: CierreSalida): ReportRow[] {
   return registros.map((registro) => ({
     id: registro.id,
     docente: `${registro.docente.nombre} ${registro.docente.apellido}`,
@@ -189,6 +222,7 @@ export function toRows(registros: Awaited<ReturnType<typeof fetchRegistros>>): R
     entrada: formatDateTime(registro.timestamp_entrada),
     salida: formatDateTime(registro.timestamp_salida),
     estado: registro.estado,
+    sin_salida: quedoSinSalida(registro, registro.horario.hora_fin, cierre),
     justificacion: registro.justificacion ?? '',
     ip_entrada: registro.ip_entrada ?? '',
     foto_entrada_url: registro.foto_entrada_url ?? '',
@@ -257,7 +291,7 @@ export async function fetchHorariosAdministrativos(where: Prisma.HorarioAdminist
   });
 }
 
-export function toAdministrativeRows(registros: RegistroAdministrativo[]): ReportRow[] {
+export function toAdministrativeRows(registros: RegistroAdministrativo[], cierre: CierreSalida): ReportRow[] {
   return registros.map((registro) => ({
     id: registro.id,
     docente: `${registro.docente.nombre} ${registro.docente.apellido}`,
@@ -272,6 +306,7 @@ export function toAdministrativeRows(registros: RegistroAdministrativo[]): Repor
     entrada: formatDateTime(registro.timestamp_entrada),
     salida: formatDateTime(registro.timestamp_salida),
     estado: registro.estado,
+    sin_salida: quedoSinSalida(registro, registro.horario_administrativo.hora_fin, cierre),
     justificacion: registro.justificacion ?? '',
     ip_entrada: registro.ip_entrada ?? '',
     foto_entrada_url: registro.foto_entrada_url ?? '',
