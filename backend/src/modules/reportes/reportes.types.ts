@@ -19,6 +19,8 @@ export interface ReportRow {
   entrada: string;
   salida: string;
   estado: string;
+  /** Tiene entrada, no marcó salida y su ventana de salida ya terminó (sin justificación aprobada). */
+  sin_salida: boolean;
   justificacion: string;
   ip_entrada: string;
   foto_entrada_url: string;
@@ -47,6 +49,8 @@ export interface ReportSummaryData {
   tardanza: number;
   justificado: number;
   ausente: number;
+  /** Registros del rango que quedaron sin salida. */
+  sin_salida: number;
   registros: ReportRow[];
   porCarrera: GroupSummary[];
   porPeriodo: DaySummary[];

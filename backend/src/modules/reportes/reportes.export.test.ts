@@ -18,6 +18,7 @@ const row = (i: number): ReportRow => ({
   entrada: '07/09/26, 07:58',
   salida: '07/09/26, 10:02',
   estado: 'puntual',
+  sin_salida: false,
   justificacion: '',
   ip_entrada: '10.0.0.1',
   foto_entrada_url: '',
@@ -43,6 +44,7 @@ const summary = (registros: ReportRow[]): ReportSummaryData => ({
   tardanza: 1,
   justificado: 1,
   ausente: 1,
+  sin_salida: 0,
   registros,
   porCarrera: [],
   porPeriodo: [],
@@ -64,6 +66,19 @@ describe('exportación de reportes', () => {
     const registros = workbook.getWorksheet('Registros')!;
     expect(registros.rowCount).toBe(3);
     expect(registros.getRow(2).getCell(2).value).toBe('Ana Pérez');
+  });
+
+  it('el Excel resume y marca las marcaciones sin salida', async () => {
+    const abierta = { ...row(2), salida: '', sin_salida: true };
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(await renderReportExcel({ ...summary([row(1), abierta]), sin_salida: 1 }));
+
+    expect(workbook.getWorksheet('Resumen')!.getRow(9).values).toEqual([, 'Sin salida', 1]);
+    const registros = workbook.getWorksheet('Registros')!;
+    const columna = registros.getRow(1).values as string[];
+    const sinSalida = columna.indexOf('Sin salida');
+    expect(registros.getRow(2).getCell(sinSalida).value).toBeFalsy();
+    expect(registros.getRow(3).getCell(sinSalida).value).toBe('Sí');
   });
 
   it('el PDF es válido y muestra un aviso cuando no hay registros', async () => {

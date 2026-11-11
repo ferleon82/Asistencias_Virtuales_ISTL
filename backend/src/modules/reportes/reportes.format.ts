@@ -11,6 +11,11 @@ export function formatDateTime(date: Date | null): string {
   }).format(date);
 }
 
+/** Estado para exportar: "puntual" o, si quedó abierta, "puntual (sin salida)". */
+export function estadoTexto(row: Pick<ReportRow, 'estado' | 'sin_salida'>): string {
+  return row.sin_salida ? `${row.estado} (sin salida)` : row.estado;
+}
+
 export function formatLocation(row: ReportRow): string {
   if (row.lat === null || row.lng === null) {
     return 'Sin GPS';

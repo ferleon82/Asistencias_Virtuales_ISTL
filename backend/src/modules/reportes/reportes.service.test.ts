@@ -6,6 +6,7 @@ vi.mock('../../config/database', () => ({
     periodoAcademico: { findUnique: vi.fn() },
     registroAdministrativo: { findMany: vi.fn() },
     horarioAdministrativo: { findMany: vi.fn() },
+    systemSetting: { findMany: vi.fn().mockResolvedValue([]) },
     diaNoLaborable: { findUnique: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
@@ -66,6 +67,31 @@ describe('ReportesService - jornada administrativa', () => {
       expect.objectContaining({ carrera: 'Ana Pérez', codigo: 'ana.perez', programadas: 1, presentes: 1 }),
       expect.objectContaining({ carrera: 'Luis Mora', codigo: 'luis.mora', programadas: 1, presentes: 0, ausente: 1 }),
     ]);
+  });
+
+  it('cuenta y filtra las marcaciones que quedaron sin salida', async () => {
+    const abierta = {
+      id: 'r2',
+      docente_id: luis.id,
+      docente: luis,
+      horario_administrativo_id: 'b-luis',
+      horario_administrativo: { ...bloque('b-luis', luis), descripcion: 'Planificación' },
+      timestamp_entrada: new Date('2026-10-05T07:59:00-05:00'),
+      timestamp_salida: null,
+      estado: EstadoAsistencia.puntual,
+      justificacion: null,
+      created_at: new Date('2026-10-05T07:59:00-05:00'),
+    };
+    const completa = (await prisma.registroAdministrativo.findMany({} as never))[0];
+    vi.mocked(prisma.registroAdministrativo.findMany).mockResolvedValue([completa, abierta] as never);
+
+    const data = await service.resumen(filtros, { id: 'u1', rol: Rol.talento_humano });
+    expect(data.sin_salida).toBe(1);
+    expect(data.registros.map((item) => [item.id, item.sin_salida])).toEqual([['r1', false], ['r2', true]]);
+
+    const filtrado = await service.resumen({ ...filtros, estado: 'sin_salida' }, { id: 'u1', rol: Rol.talento_humano });
+    expect(filtrado.registros.map((item) => item.id)).toEqual(['r2']);
+    expect(vi.mocked(prisma.registroAdministrativo.findMany).mock.calls.at(-1)![0].where).toMatchObject({ timestamp_salida: null });
   });
 
   it('coordinación no puede verla', async () => {

@@ -1,6 +1,8 @@
 import { EstadoAsistencia } from '@prisma/client';
 import { z } from 'zod';
 
+export const ESTADO_SIN_SALIDA = 'sin_salida';
+
 export const reporteQuerySchema = z
   .object({
     tipo: z.enum(['docente', 'administrativa']).default('docente'),
@@ -11,7 +13,8 @@ export const reporteQuerySchema = z
     fecha_inicio: z.coerce.date().optional(),
     fecha_fin: z.coerce.date().optional(),
     ciclo: z.coerce.number().int().min(1).max(5).optional(),
-    estado: z.nativeEnum(EstadoAsistencia).optional(),
+    /** `sin_salida`: marcaciones con entrada cuya ventana de salida terminó sin marcarla. */
+    estado: z.union([z.nativeEnum(EstadoAsistencia), z.literal(ESTADO_SIN_SALIDA)]).optional(),
   })
   .refine((data) => !data.fecha_inicio || !data.fecha_fin || data.fecha_inicio <= data.fecha_fin, {
     message: 'La fecha de inicio debe ser anterior o igual a la fecha fin',

@@ -16,6 +16,11 @@ describe('reportes schemas', () => {
     expect(result.success).toBe(true);
   });
 
+  it('acepta el estado "sin_salida" y rechaza estados desconocidos', () => {
+    expect(reporteQuerySchema.parse({ estado: 'sin_salida' }).estado).toBe('sin_salida');
+    expect(reporteQuerySchema.safeParse({ estado: 'otro' }).success).toBe(false);
+  });
+
   it('rechaza fecha fin anterior a fecha inicio', () => {
     const result = reporteQuerySchema.safeParse({
       fecha_inicio: '2026-06-01',
