@@ -6,6 +6,15 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Estado de marcacion al dia en el telefono
+
+- El panel del docente recarga el estado de marcacion (clases y horas
+  administrativas) apenas vuelve a la pantalla; antes, con el telefono
+  bloqueado o en otra aplicacion, el boton de salida podia seguir desactivado
+  aunque la salida ya estuviera habilitada.
+- El boton **Marcar salida** se habilita justo cuando se abre la ventana de
+  salida, sin esperar la recarga de cada 30 segundos.
+
 ### Marcaciones administrativas paginadas
 
 - En Horas administrativas, las marcaciones recientes se muestran de 10 en

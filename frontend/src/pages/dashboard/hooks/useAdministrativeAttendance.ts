@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../../../lib/axios';
 import { getBrowserLocation } from '../geolocation';
 import { getApiMessage } from '../../../lib/apiError';
+import { useLiveRefresh } from './useLiveRefresh';
 
 type Action = 'entrada' | 'salida';
 
@@ -40,12 +41,8 @@ export function useAdministrativeAttendance(userRole?: string, onMarked?: () => 
     }
   }, [userRole]);
 
-  useEffect(() => {
-    void reload();
-    if (userRole !== 'docente') return undefined;
-    const timer = window.setInterval(() => void reload(), 30_000);
-    return () => window.clearInterval(timer);
-  }, [reload, userRole]);
+  useEffect(() => { void reload(); }, [reload]);
+  useLiveRefresh(reload, userRole === 'docente', state?.registroAbierto && !state.puedeMarcarSalida ? state.salidaDisponibleDesde : null);
 
   const mark = async (action: Action, photo?: string) => {
     setLoading(true); setError(''); setSuccess('');
