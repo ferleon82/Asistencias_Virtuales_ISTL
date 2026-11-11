@@ -6,6 +6,18 @@ sistema. Para el detalle exacto de cada cambio, revise el commit indicado con
 
 ## [En desarrollo]
 
+### Estado "Sin salida" en los reportes
+
+- Una marcacion queda "sin salida" cuando tiene entrada, no marco salida y
+  ya termino su plazo para marcarla. Con una justificacion aprobada no cuenta.
+- En Reportes (clases y jornada administrativa): etiqueta "sin salida" junto
+  al estado, tarjeta **Sin salida** en el resumen (resaltada si hay alguna) y
+  opcion "sin salida" en el filtro de Estado.
+- El PDF agrega la tarjeta y muestra el estado como "puntual (sin salida)";
+  el Excel agrega el indicador en Resumen y la columna "Sin salida".
+- No cambia como se cuentan presentes, puntuales ni ausencias. Sin
+  migraciones; se calcula con la configuracion de minutos de salida.
+
 ### Estado de marcacion al dia en el telefono
 
 - El panel del docente recarga el estado de marcacion (clases y horas
