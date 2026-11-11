@@ -3,6 +3,7 @@ import api from '../../../lib/axios';
 import { getBrowserLocation } from '../geolocation';
 import type { AsistenciaItem, EstadoAsistenciaActual, HorarioItem } from '../types';
 import { getApiMessage } from '../../../lib/apiError';
+import { useLiveRefresh } from './useLiveRefresh';
 
 
 interface UseTeacherAttendanceInput {
@@ -35,14 +36,12 @@ export function useTeacherAttendance({ userRole, diaSemanaEcuador, loadReportSum
 
   useEffect(() => {
     void loadEstadoAsistencia();
-    if (userRole !== 'docente') return undefined;
-
-    const intervalId = window.setInterval(() => {
-      void loadEstadoAsistencia();
-    }, 30_000);
-
-    return () => window.clearInterval(intervalId);
-  }, [loadEstadoAsistencia, userRole]);
+  }, [loadEstadoAsistencia]);
+  useLiveRefresh(
+    loadEstadoAsistencia,
+    userRole === 'docente',
+    estadoAsistencia?.registroAbierto && !estadoAsistencia.puedeMarcarSalida ? estadoAsistencia.salidaDisponibleDesde : null
+  );
 
   const loadDocentePanel = useCallback(async () => {
     if (userRole !== 'docente') return;
@@ -64,14 +63,8 @@ export function useTeacherAttendance({ userRole, diaSemanaEcuador, loadReportSum
 
   useEffect(() => {
     void loadDocentePanel();
-    if (userRole !== 'docente') return undefined;
-
-    const intervalId = window.setInterval(() => {
-      void loadDocentePanel();
-    }, 30_000);
-
-    return () => window.clearInterval(intervalId);
-  }, [loadDocentePanel, userRole]);
+  }, [loadDocentePanel]);
+  useLiveRefresh(loadDocentePanel, userRole === 'docente');
 
   const markAttendance = async (type: 'entrada' | 'salida', fotoBase64?: string) => {
     setAttendanceLoading(true);
